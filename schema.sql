@@ -1,0 +1,115 @@
+-- =========================================================
+-- FULBO B2B SAAS - SUPABASE SCHEMA (V3 - Idempotente)
+-- =========================================================
+
+-- Limpieza de instalaciones previas para evitar errores "already exists"
+DROP TABLE IF EXISTS event_registrations CASCADE;
+DROP TABLE IF EXISTS league_state CASCADE;
+DROP TABLE IF EXISTS match_events CASCADE;
+DROP TABLE IF EXISTS matches CASCADE;
+DROP TABLE IF EXISTS players CASCADE;
+DROP TABLE IF EXISTS hosts CASCADE;
+DROP TYPE IF EXISTS tactical_role CASCADE;
+
+-- Habilitar extensión UUID
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ==========================================
+-- 1. HOSTS (Ligas / Canchas)
+-- ==========================================
+-- Esta tabla vincula a los dueños de las ligas con el sistema Auth de Supabase.
+CREATE TABLE hosts (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    organization_name VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Habilitar Row Level Security para que un Host no vea datos de otro
+ALTER TABLE hosts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Hosts can read own data" ON hosts FOR SELECT USING (auth.uid() = id);
+
+-- ==========================================
+-- 2. PLAYERS (Roster Comunitario)
+-- ==========================================
+CREATE TYPE tactical_role AS ENUM ('Ancla', 'Creativo', 'Finalizador', 'Capitan');
+
+CREATE TABLE players (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    host_id UUID NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    role tactical_role NOT NULL,
+    avatar TEXT, -- URL de imagen o Emoji
+    
+    -- Estadísticas Granulares (JSONB permite escalabilidad futura sin alterar DDL)
+    -- Estructura esperada: {"pac": 80, "sho": 75, "pas": 80, "dri": 85, "def": 60, "phy": 70}
+    stats JSONB DEFAULT '{"pac": 75, "sho": 75, "pas": 75, "dri": 75, "def": 75, "phy": 75}'::jsonb,
+    
+    -- Historial Global (Leaderboard)
+    pj INT DEFAULT 0,
+    pg INT DEFAULT 0,
+    goals INT DEFAULT 0,
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Políticas de Seguridad para Jugadores
+ALTER TABLE players ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Hosts can fully manage their own players" ON players
+    FOR ALL USING (auth.uid() = host_id);
+
+-- ==========================================
+-- 3. MATCHES (Historial de Partidos)
+-- ==========================================
+CREATE TABLE matches (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    host_id UUID NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+    team_a_score INT DEFAULT 0,
+    team_b_score INT DEFAULT 0,
+    winner VARCHAR(10), -- 'A', 'B', 'Draw'
+    played_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Hosts can fully manage their own matches" ON matches
+    FOR ALL USING (auth.uid() = host_id);
+
+-- ==========================================
+-- 5. LEAGUE STATE (React State Sync)
+-- ==========================================
+-- Esta tabla permite sincronizar el estado complejo de React (Glicko, Finanzas, Historial) 
+-- directamente en un formato JSONB atado al usuario, garantizando persistencia en la nube sin 
+-- necesidad de mapear ORMs complejos en el MVP.
+CREATE TABLE league_state (
+    host_id UUID PRIMARY KEY REFERENCES hosts(id) ON DELETE CASCADE,
+    roster JSONB DEFAULT '[]'::jsonb,
+    match_history JSONB DEFAULT '[]'::jsonb,
+    active_event JSONB,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE league_state ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Hosts can fully manage their own league state" ON league_state
+    FOR ALL USING (auth.uid() = host_id);
+CREATE POLICY "Public can read league state" ON league_state
+    FOR SELECT USING (true);
+
+-- ==========================================
+-- 6. EVENT REGISTRATIONS (Lobby Público)
+-- ==========================================
+-- Buzón público para que los jugadores envíen su inscripción desde la Companion App
+CREATE TABLE event_registrations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    host_id UUID NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    stats JSONB NOT NULL,
+    avatar TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE event_registrations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public can insert event registrations" ON event_registrations
+    FOR INSERT WITH CHECK (true);
+CREATE POLICY "Hosts can fully manage their event registrations" ON event_registrations
+    FOR ALL USING (auth.uid() = host_id);

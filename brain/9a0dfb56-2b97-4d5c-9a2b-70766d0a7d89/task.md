@@ -1,0 +1,16 @@
+- `[x]` Autenticación y Avatares (Iteración 7)
+- `[x]` Simulación de Partidos y Estadísticas (Iteración 8)
+- `[x]` Arquitectura SaaS B2B y Supabase (Iteración 9)
+- `[x]` Integración con WhatsApp (Iteración 10)
+- `[x]` Historial de Partidos y Tooltips (Iteración 11)
+- `[x]` Glicko-2 Real y Analíticas Avanzadas (Iteración 12)
+- `[x]` La Vaquita Inteligente - Finanzas (Iteración 13)
+- `[x]` Migración a Supabase Cloud (Iteración 14)
+- `[x]` App Companion y Enlace Público (Iteración 15)
+- `[x]` Draft Mode En Vivo (Iteración 16)
+- `[x]` Fatiga y Lesiones (Iteración 17)
+- `[x]` Lobby y Auto-Registro (Iteración 18)
+  - `[x]` Actualizar schema.sql.
+  - `[x]` Creador de Eventos y Lobby en Dashboard.
+  - `[x]` Formulario de Auto-Inscripción RPG en CompanionApp.
+  - `[x]` Lógica de transferencia del Lobby al Draft.
