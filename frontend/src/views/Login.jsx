@@ -12,8 +12,7 @@ const Login = ({ onLogin }) => {
     setErrorMsg('');
     
     if (!isSupabaseConfigured || !supabase) {
-      // Mock Auth Fallback
-      if(email && password) onLogin();
+      setErrorMsg('FATAL ERROR: Cloud Security Gateway no configurado. Faltan variables de entorno en Vercel.');
       return;
     }
 
@@ -45,21 +44,15 @@ const Login = ({ onLogin }) => {
         </div>
         
         <div style={{ color: 'var(--off-white)', letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '2rem', fontSize: '0.8rem', fontWeight: 'bold' }}>
-          {isSupabaseConfigured ? 'Cloud Security Gateway' : 'Local Mock Gateway'}
+          Cloud Security Gateway
         </div>
-        
-        {!isSupabaseConfigured && (
-           <div style={{ background: 'rgba(255,215,0,0.1)', border: '1px solid var(--ultimate-gold)', color: 'var(--ultimate-gold)', padding: '0.5rem', borderRadius: '4px', marginBottom: '2rem', fontSize: '0.8rem' }}>
-             Modo Local: Escribe cualquier texto para ingresar. Las credenciales maestras de Supabase aún no están configuradas en .env.local
-           </div>
-        )}
         
         {errorMsg && (
            <div style={{ color: 'var(--crimson-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{errorMsg}</div>
         )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
-          <input type={isSupabaseConfigured ? "email" : "text"} placeholder={isSupabaseConfigured ? "Email (Host Account)" : "HOST ID"} style={inputStyle} value={email} onChange={e => setEmail(e.target.value)} required />
+          <input type="email" placeholder="Email (Host Account)" style={inputStyle} value={email} onChange={e => setEmail(e.target.value)} required />
           <input type="password" placeholder="ACCESS KEY (Password)" style={inputStyle} value={password} onChange={e => setPassword(e.target.value)} required />
           
           <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '1rem', borderColor: 'var(--electric-cyan)', color: 'var(--electric-cyan)' }}>
