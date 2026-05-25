@@ -2,9 +2,10 @@
   "name": "fulbo-root",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "npm run dev --prefix frontend",
-    "build": "npm run build --prefix frontend",
+    "build": "node build.js",
     "preview": "npm run preview --prefix frontend"
   },
   "dependencies": {
