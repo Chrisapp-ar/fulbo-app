@@ -59,6 +59,134 @@ const Dashboard = ({ onLogout }) => {
 
   const [viewMode, setViewMode] = useState('builder'); 
   const [selectedPlayerDetails, setSelectedPlayerDetails] = useState(null);
+
+  const renderPlayerDetailsModal = () => {
+    if (!selectedPlayerDetails) return null;
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '1rem',
+        animation: 'fadeIn 0.25s ease-out'
+      }}>
+        <div className="glass-panel responsive-flex" style={{
+          maxWidth: '900px',
+          width: '100%',
+          display: 'flex',
+          gap: '2.5rem',
+          padding: '2.5rem',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          position: 'relative',
+          maxHeight: '90vh',
+          overflowY: 'auto'
+        }}>
+          {/* Close Button */}
+          <button 
+            onClick={() => setSelectedPlayerDetails(null)} 
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              right: '1.2rem',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--off-white)',
+              fontSize: '1.8rem',
+              cursor: 'pointer',
+              transition: 'color 0.2s',
+              fontFamily: 'var(--font-secondary)'
+            }}
+            onMouseEnter={(e) => e.target.style.color = 'var(--crimson-red)'}
+            onMouseLeave={(e) => e.target.style.color = 'var(--off-white)'}
+          >
+            &times;
+          </button>
+
+          {/* Left side: FUT Card */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <PlayerCard 
+              name={selectedPlayerDetails.name} 
+              position={selectedPlayerDetails.role.substring(0,3).toUpperCase()} 
+              stats={selectedPlayerDetails.stats} 
+              avatar={selectedPlayerDetails.avatar} 
+              ovr={calcOvr(selectedPlayerDetails)}
+              stamina={selectedPlayerDetails.condition?.stamina ?? 100}
+            />
+            <span style={{ 
+              marginTop: '1rem', 
+              color: 'var(--ultimate-gold)', 
+              fontFamily: 'var(--font-primary)', 
+              fontSize: '1.3rem', 
+              fontWeight: '900',
+              letterSpacing: '1px'
+            }}>
+              {selectedPlayerDetails.role.toUpperCase()}
+            </span>
+          </div>
+
+          {/* Right side: Elo chart & Stats */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <h2 className="glow-text-volt" style={{ fontSize: '2.2rem', margin: '0 0 0.2rem 0' }}>{selectedPlayerDetails.name}</h2>
+              <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>
+                Estadísticas del Rango Competitivo (Glicko-2)
+              </p>
+            </div>
+
+            {/* Chart */}
+            <EloChart history={selectedPlayerDetails.glicko?.history || [1500, selectedPlayerDetails.glicko?.rating || 1500]} />
+
+            {/* Stats Summary Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rating Actual</div>
+                <div className="glow-text-volt" style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '0.2rem' }}>
+                  {Math.round(selectedPlayerDetails.glicko?.rating || 1500)}
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Partidos Jugados</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>
+                  {selectedPlayerDetails.history?.pj || 0}
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Win Rate %</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--electric-cyan)' }}>
+                  {selectedPlayerDetails.history?.pj > 0 
+                    ? Math.round(((selectedPlayerDetails.history?.pg || 0) / selectedPlayerDetails.history.pj) * 100)
+                    : 0}%
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Desviación (RD)</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '0.4rem', color: 'var(--off-white)' }}>
+                  ±{Math.round(selectedPlayerDetails.glicko?.rd || 350)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   
   const [activeEvent, setActiveEvent] = useState(null);
   const [eventFormat, setEventFormat] = useState(10);
@@ -478,6 +606,7 @@ const Dashboard = ({ onLogout }) => {
             })
           )}
         </div>
+        {renderPlayerDetailsModal()}
       </div>
     );
   }
@@ -554,6 +683,7 @@ const Dashboard = ({ onLogout }) => {
             </tbody>
           </table>
         </div>
+        {renderPlayerDetailsModal()}
       </div>
     );
   }
@@ -633,6 +763,7 @@ const Dashboard = ({ onLogout }) => {
           <button onClick={() => { if(window.confirm('¿Cancelar partido? No se guardarán los stats.')) setViewMode('builder'); }} style={{ ...btnSec, borderColor: 'var(--off-white)', color: 'var(--off-white)', fontSize: '1.2rem', padding: '1rem 3rem' }}>CANCELAR</button>
           <button onClick={finishMatch} className="btn-primary" style={{ width: 'auto', fontSize: '1.5rem', padding: '1rem 4rem' }}>FINALIZAR PARTIDO</button>
         </div>
+        {renderPlayerDetailsModal()}
       </div>
     );
   }
@@ -899,131 +1030,7 @@ const Dashboard = ({ onLogout }) => {
               )}
             </>
           )}
-          {/* Player Details Modal (MMR Graph & Card) */}
-          {selectedPlayerDetails && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0, 0, 0, 0.85)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 9999,
-              padding: '1rem',
-              animation: 'fadeIn 0.25s ease-out'
-            }}>
-              <div className="glass-panel responsive-flex" style={{
-                maxWidth: '900px',
-                width: '100%',
-                display: 'flex',
-                gap: '2.5rem',
-                padding: '2.5rem',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                position: 'relative',
-                maxHeight: '90vh',
-                overflowY: 'auto'
-              }}>
-                {/* Close Button */}
-                <button 
-                  onClick={() => setSelectedPlayerDetails(null)} 
-                  style={{
-                    position: 'absolute',
-                    top: '1rem',
-                    right: '1.2rem',
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--off-white)',
-                    fontSize: '1.8rem',
-                    cursor: 'pointer',
-                    transition: 'color 0.2s',
-                    fontFamily: 'var(--font-secondary)'
-                  }}
-                  onMouseEnter={(e) => e.target.style.color = 'var(--crimson-red)'}
-                  onMouseLeave={(e) => e.target.style.color = 'var(--off-white)'}
-                >
-                  &times;
-                </button>
-
-                {/* Left side: FUT Card */}
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <PlayerCard 
-                    name={selectedPlayerDetails.name} 
-                    position={selectedPlayerDetails.role.substring(0,3).toUpperCase()} 
-                    stats={selectedPlayerDetails.stats} 
-                    avatar={selectedPlayerDetails.avatar} 
-                    ovr={calcOvr(selectedPlayerDetails)}
-                    stamina={selectedPlayerDetails.condition?.stamina ?? 100}
-                  />
-                  <span style={{ 
-                    marginTop: '1rem', 
-                    color: 'var(--ultimate-gold)', 
-                    fontFamily: 'var(--font-primary)', 
-                    fontSize: '1.3rem', 
-                    fontWeight: '900',
-                    letterSpacing: '1px'
-                  }}>
-                    {selectedPlayerDetails.role.toUpperCase()}
-                  </span>
-                </div>
-
-                {/* Right side: Elo chart & Stats */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                  <div>
-                    <h2 className="glow-text-volt" style={{ fontSize: '2.2rem', margin: '0 0 0.2rem 0' }}>{selectedPlayerDetails.name}</h2>
-                    <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>
-                      Estadísticas del Rango Competitivo (Glicko-2)
-                    </p>
-                  </div>
-
-                  {/* Chart */}
-                  <EloChart history={selectedPlayerDetails.glicko?.history || [1500, selectedPlayerDetails.glicko?.rating || 1500]} />
-
-                  {/* Stats Summary Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
-                      <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rating Actual</div>
-                      <div className="glow-text-volt" style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '0.2rem' }}>
-                        {Math.round(selectedPlayerDetails.glicko?.rating || 1500)}
-                      </div>
-                    </div>
-
-                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
-                      <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Partidos Jugados</div>
-                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>
-                        {selectedPlayerDetails.history?.pj || 0}
-                      </div>
-                    </div>
-
-                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
-                      <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Win Rate %</div>
-                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--electric-cyan)' }}>
-                        {selectedPlayerDetails.history?.pj > 0 
-                          ? Math.round(((selectedPlayerDetails.history?.pg || 0) / selectedPlayerDetails.history.pj) * 100)
-                          : 0}%
-                      </div>
-                    </div>
-
-                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
-                      <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Desviación (RD)</div>
-                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '0.4rem', color: 'var(--off-white)' }}>
-                        ±{Math.round(selectedPlayerDetails.glicko?.rd || 350)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {renderPlayerDetailsModal()}
         </main>
       </div>
     </div>
