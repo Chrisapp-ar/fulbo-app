@@ -304,7 +304,7 @@ const Login = ({ onLogin }) => {
               textTransform: 'uppercase'
             }}
           >
-            {isRegistering ? '¿Ya tienes una liga? Inicia Sesión' : '¿No tienes cuenta? Registra tu Club'}
+            {isRegistering ? '¿Ya tienes una liga? Inicia Sesión' : '¿No tienes cuenta? Regístrate'}
           </button>
         </div>
       </div>
