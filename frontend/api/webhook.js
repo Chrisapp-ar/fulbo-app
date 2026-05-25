@@ -69,6 +69,26 @@ export default async function handler(req, res) {
       const [hostId, playerId] = external_reference.split(':');
 
       if (hostId && playerId) {
+        if (playerId === 'subscription') {
+          // Process Host Platform Subscription payment
+          const { error: hostError } = await supabase
+            .from('hosts')
+            .update({
+              subscription_type: 'monthly',
+              subscription_status: 'active',
+              subscription_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            })
+            .eq('id', hostId);
+
+          if (hostError) {
+            console.error('Failed to update host subscription status in database:', hostError);
+            return res.status(500).json({ error: 'Database update failed' });
+          }
+
+          console.log(`Successfully activated subscription for Host: ${hostId}`);
+          return res.status(200).json({ status: 'subscribed', hostId });
+        }
+
         const { data: leagueState, error: fetchError } = await supabase
           .from('league_state')
           .select('roster')

@@ -33,6 +33,11 @@ const CompanionApp = ({ leagueId }) => {
   const [loading, setLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   
+  // Subscription state
+  const [subscriptionStatus, setSubscriptionStatus] = useState('active');
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState('');
+  const [subscriptionChecking, setSubscriptionChecking] = useState(true);
+  
   const [activeEvent, setActiveEvent] = useState(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [regName, setRegName] = useState('');
@@ -48,6 +53,26 @@ const CompanionApp = ({ leagueId }) => {
     if (!regName.trim()) return;
     
     if (isSupabaseConfigured && supabase) {
+      // 1. Fetch current registrations for this league event
+      const { data: currentRegs, error: fetchRegsError } = await supabase
+        .from('event_registrations')
+        .select('name')
+        .eq('host_id', leagueId);
+
+      if (fetchRegsError) {
+        console.error("Error checking registrations count:", fetchRegsError);
+      }
+
+      // 2. Clean duplicates by name to be consistent with how the Admin Dashboard counts them
+      const uniqueNames = new Set((currentRegs || []).map(r => r.name.toLowerCase().trim()));
+      
+      const currentNameClean = regName.toLowerCase().trim();
+      if (uniqueNames.size >= 15 && !uniqueNames.has(currentNameClean)) {
+        alert("Límite de invitación alcanzado. No hay más vacantes para este partido (Máximo 15 invitados por cuenta).");
+        return;
+      }
+
+      // 3. Proceed with registration
       const { error } = await supabase.from('event_registrations').insert({
         host_id: leagueId,
         name: regName.trim(),
@@ -162,6 +187,14 @@ const CompanionApp = ({ leagueId }) => {
     if (isSupabaseConfigured && supabase && leagueId) {
       const fetchLeague = async () => {
         try {
+          // Fetch host's subscription details
+          const { data: hostData } = await supabase.from('hosts').select('subscription_status, subscription_ends_at').eq('id', leagueId);
+          if (hostData && hostData.length > 0) {
+            setSubscriptionStatus(hostData[0].subscription_status || 'active');
+            setSubscriptionEndsAt(hostData[0].subscription_ends_at || '');
+          }
+          setSubscriptionChecking(false);
+
           const { data, error } = await supabase.from('league_state').select('*').eq('host_id', leagueId);
           if (data && data.length > 0) {
             processLeagueData(data[0]);
@@ -171,6 +204,7 @@ const CompanionApp = ({ leagueId }) => {
         } catch (err) {
           console.error("Error fetching league state:", err);
           processLeagueData(null);
+          setSubscriptionChecking(false);
         }
         setLoading(false);
       };
@@ -203,8 +237,29 @@ const CompanionApp = ({ leagueId }) => {
     }
   }, [leagueId]);
 
+  const isSubscriptionExpired = () => {
+    if (subscriptionChecking) return false;
+    if (subscriptionStatus !== 'active') return true;
+    if (subscriptionEndsAt && new Date(subscriptionEndsAt) < new Date()) return true;
+    return false;
+  };
+
   if (loading) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--volt-lime)', fontSize: '1.5rem', background: 'var(--pitch-black)' }}>Cargando Liga...</div>;
+  }
+
+  if (!subscriptionChecking && isSubscriptionExpired()) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>
+        <div className="glass-panel" style={{ maxWidth: '500px', width: '100%', padding: '3rem 2rem', borderTop: '2px solid var(--crimson-red)', boxShadow: '0 0 20px rgba(255,0,85,0.1)' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+          <h2 style={{ color: 'var(--crimson-red)', marginBottom: '1rem' }}>LIGA TEMPORALMENTE INACTIVA</h2>
+          <p style={{ color: 'var(--off-white)', lineHeight: '1.6' }}>
+            La suscripción o período de prueba del organizador de esta liga ha expirado. Por favor, ponte en contacto con el administrador del club para que renueve su plan.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (!leagueExists) {

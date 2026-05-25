@@ -24,6 +24,9 @@ CREATE TABLE hosts (
     organization_name VARCHAR(100),
     mercadopago_access_token TEXT,
     mercadopago_user_id VARCHAR(100),
+    subscription_type VARCHAR(50) DEFAULT 'trial',
+    subscription_status VARCHAR(50) DEFAULT 'active',
+    subscription_ends_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() + INTERVAL '1 week',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -123,8 +126,8 @@ CREATE POLICY "Hosts can fully manage their event registrations" ON event_regist
 CREATE OR REPLACE FUNCTION public.handle_new_host()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.hosts (id, email)
-    VALUES (new.id, new.email);
+    INSERT INTO public.hosts (id, email, subscription_type, subscription_status, subscription_ends_at)
+    VALUES (new.id, new.email, 'trial', 'active', NOW() + INTERVAL '1 week');
     
     INSERT INTO public.league_state (host_id, roster, match_history)
     VALUES (new.id, '[]'::jsonb, '[]'::jsonb);

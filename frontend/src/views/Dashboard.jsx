@@ -91,6 +91,12 @@ const Dashboard = ({ onLogout }) => {
   const [mpUserId, setMpUserId] = useState('');
   const [showMpConfig, setShowMpConfig] = useState(false);
 
+  // 9. Estados de Suscripción SaaS
+  const [subscriptionType, setSubscriptionType] = useState('trial');
+  const [subscriptionStatus, setSubscriptionStatus] = useState('active');
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState('');
+  const [subscriptionChecking, setSubscriptionChecking] = useState(true);
+
   // 5. Estados del Match Day Lobby
   const [activeEvent, setActiveEvent] = useState(null);
   const [eventFormat, setEventFormat] = useState(10);
@@ -551,8 +557,23 @@ const Dashboard = ({ onLogout }) => {
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) setHostId(user.id);
-       });
+          if (user) {
+            setHostId(user.id);
+            // Fetch subscription details
+            supabase.from('hosts').select('subscription_type, subscription_status, subscription_ends_at').eq('id', user.id).then(({ data, error }) => {
+              if (data && data.length > 0) {
+                setSubscriptionType(data[0].subscription_type || 'trial');
+                setSubscriptionStatus(data[0].subscription_status || 'active');
+                setSubscriptionEndsAt(data[0].subscription_ends_at || '');
+              }
+              setSubscriptionChecking(false);
+            }).catch(() => setSubscriptionChecking(false));
+          } else {
+            setSubscriptionChecking(false);
+          }
+       }).catch(() => setSubscriptionChecking(false));
+    } else {
+      setSubscriptionChecking(false);
     }
   }, []);
 
@@ -990,6 +1011,68 @@ const Dashboard = ({ onLogout }) => {
 
   // --- RENDERS ---
 
+  const isSubscriptionExpired = () => {
+    if (subscriptionChecking) return false;
+    if (subscriptionStatus !== 'active') return true;
+    if (subscriptionEndsAt && new Date(subscriptionEndsAt) < new Date()) return true;
+    return false;
+  };
+
+  if (!subscriptionChecking && isSubscriptionExpired()) {
+    const handlePaySubscription = async () => {
+      try {
+        setIsLoading(true);
+        const redirectUrl = `${window.location.origin}/?subscription_payment=approved&host_id=${hostId}`;
+        const response = await fetch('/api/create-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hostId, redirectUrl })
+        });
+        const data = await response.json();
+        if (response.ok && data.initPoint) {
+          window.location.href = data.initPoint;
+        } else {
+          alert("Error al conectar con Mercado Pago: " + (data.error || "Inténtalo más tarde."));
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error al conectar con la pasarela.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--pitch-black)', padding: '1rem' }}>
+        <div className="glass-panel" style={{ maxWidth: '600px', width: '100%', textAlign: 'center', padding: '3.5rem 2rem', borderTop: '4px solid var(--crimson-red)', animation: 'fadeIn 0.5s ease-out', boxShadow: '0 0 30px rgba(255,0,85,0.2)' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚠️</div>
+          <h2 className="glow-text-volt" style={{ color: 'var(--crimson-red)', textShadow: '0 0 15px rgba(255,0,85,0.4)', fontSize: '2.2rem', marginBottom: '1.5rem' }}>SERVICIO SUSPENDIDO</h2>
+          
+          <p style={{ color: 'var(--pure-white)', fontSize: '1.05rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+            Tu período de prueba o suscripción mensual a FULBO ha caducado o se encuentra inactivo. Para continuar administrando tus torneos, balanceando equipos con IA y cobrando cuotas, activa tu plan premium.
+          </p>
+
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '1.5rem', marginBottom: '2rem' }}>
+            <span style={{ color: 'var(--off-white)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.3rem' }}>Plan Profesional Mensual</span>
+            <span style={{ color: 'var(--ultimate-gold)', fontSize: '1.8rem', fontWeight: '900', textShadow: '0 0 10px rgba(255,215,0,0.3)' }}>$9.999 ARS / mes</span>
+            <span style={{ color: 'var(--off-white)', fontSize: '0.7rem', display: 'block', marginTop: '0.5rem' }}>* Incluye matchmaking ilimitado de hasta 15 invitados por partido.</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <button className="btn-primary" onClick={handlePaySubscription} disabled={isLoading} style={{ borderColor: 'var(--volt-lime)', color: 'black', background: 'var(--volt-lime)', boxShadow: '0 0 25px rgba(204,255,0,0.3)', padding: '1.2rem', fontSize: '1.2rem' }}>
+              {isLoading ? 'CREANDO ENLACE...' : '💳 ACTIVAR CON MERCADO PAGO'}
+            </button>
+            <button onClick={onLogout} style={{ background: 'transparent', border: '1px solid var(--off-white)', color: 'var(--off-white)', padding: '0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+              Cerrar Sesión / Usar otra cuenta
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- RENDERS ---
+
   if (viewMode === 'history') {
     return (
       <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
@@ -1417,8 +1500,8 @@ const Dashboard = ({ onLogout }) => {
                   <select value={eventFormat} onChange={e => setEventFormat(parseInt(e.target.value))} style={inputStyle}>
                      <option value={10}>Fulbo 5 (10 Jug)</option>
                      <option value={14}>Fulbo 7 (14 Jug)</option>
-                     <option value={18}>Fulbo 9 (18 Jug)</option>
-                     <option value={22}>Fulbo 11 (22 Jug)</option>
+                     <option value={18} disabled style={{ color: 'rgba(255,255,255,0.2)' }}>Fulbo 9 (18 Jug) - Máx 15 Jug. en Plan</option>
+                     <option value={22} disabled style={{ color: 'rgba(255,255,255,0.2)' }}>Fulbo 11 (22 Jug) - Máx 15 Jug. en Plan</option>
                   </select>
                   <button onClick={() => setActiveEvent({ date: eventDate, time: eventTime, format: eventFormat })} className="btn-primary" style={{ padding: '0.5rem 1.5rem', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0, fontSize: '1rem' }}>CREAR EVENTO</button>
                </div>
@@ -1436,6 +1519,7 @@ const Dashboard = ({ onLogout }) => {
                   <div>
                      <div style={{ fontSize: '0.9rem', color: 'var(--off-white)' }}>Inscritos actualmente en el Lobby Público:</div>
                      <div className="glow-text-volt" style={{ fontSize: '2rem', fontWeight: 'bold', color: uniqueRegistrations.length >= activeEvent.format ? 'var(--crimson-red)' : 'var(--volt-lime)' }}>{uniqueRegistrations.length} / {activeEvent.format}</div>
+                     {uniqueRegistrations.length >= 15 && <span style={{ fontSize: '0.8rem', color: 'var(--crimson-red)', marginLeft: '1rem' }}>(Límite de Invitación de 15 Jug. alcanzado)</span>}
                   </div>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                      {uniqueRegistrations.length > 0 && (

@@ -1,13 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 
 const Login = ({ onLogin }) => {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [orgName, setOrgName] = useState('');
+  const [plan, setPlan] = useState('trial'); // 'trial' | 'monthly'
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [subscriptionSuccess, setSubscriptionSuccess] = useState(false);
 
-  const handleSubmit = async (e) => {
+  // Detect payment return parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('subscription_payment') === 'approved') {
+      setSubscriptionSuccess(true);
+      // Clean query parameters from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     
@@ -16,49 +30,283 @@ const Login = ({ onLogin }) => {
       return;
     }
 
-    // Real Supabase Auth
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-       // Auto-registro para la demo si el usuario no existe (y si Supabase permite signups sin confirmación de email)
-       const { error: signUpError } = await supabase.auth.signUp({ email, password });
-       if (signUpError) setErrorMsg(signUpError.message);
-       else alert("Tu cuenta Host ha sido registrada en la Nube. (Revisa tu email si tienes confirmación activa, de lo contrario vuelve a darle Entrar).");
+      setErrorMsg(error.message);
+      setLoading(false);
+    } else {
+      setLoading(false);
+      onLogin();
     }
-    setLoading(false);
   };
 
-  const inputStyle = { background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--pure-white)', padding: '1rem', borderRadius: '6px', width: '100%', fontFamily: 'var(--font-secondary)', marginBottom: '1.5rem', fontSize: '1rem', textAlign: 'center' };
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    
+    if (!isSupabaseConfigured || !supabase) {
+      setErrorMsg('FATAL ERROR: Cloud Security Gateway no configurado.');
+      return;
+    }
+
+    if (!orgName.trim()) {
+      setErrorMsg('Por favor, ingresa el nombre de tu club o liga.');
+      return;
+    }
+
+    setLoading(true);
+    
+    // 1. SignUp in Supabase Auth
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    if (signUpError) {
+      setErrorMsg(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    const hostUser = signUpData.user;
+    if (!hostUser) {
+      setErrorMsg('Error en el registro. Inténtalo de nuevo.');
+      setLoading(false);
+      return;
+    }
+
+    const hostId = hostUser.id;
+    const isTrial = plan === 'trial';
+    const endsAt = isTrial 
+      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      : new Date().toISOString(); // Ends now (unpaid) until webhook updates it
+    const subStatus = isTrial ? 'active' : 'unpaid';
+
+    // Sleep 1.2s for PostgreSQL trigger to finish executing handle_new_host()
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
+    // 2. Update league metadata in public.hosts
+    const { error: updateError } = await supabase
+      .from('hosts')
+      .update({
+        organization_name: orgName.trim(),
+        subscription_type: plan,
+        subscription_status: subStatus,
+        subscription_ends_at: endsAt
+      })
+      .eq('id', hostId);
+
+    if (updateError) {
+      console.error("Error setting host organization name:", updateError);
+    }
+
+    if (isTrial) {
+      // 3a. For trial hosts, log them in immediately
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setErrorMsg(signInError.message);
+        setLoading(false);
+      } else {
+        setLoading(false);
+        onLogin();
+      }
+    } else {
+      // 3b. For monthly paid hosts, fetch Mercado Pago preference from Vercel Serverless Function
+      try {
+        const redirectUrl = `${window.location.origin}/?subscription_payment=approved&host_id=${hostId}`;
+        const response = await fetch('/api/create-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hostId, redirectUrl })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.initPoint) {
+          // Redirect browser to Mercado Pago checkout
+          window.location.href = data.initPoint;
+        } else {
+          setErrorMsg("Error al crear preferencia de Mercado Pago: " + (data.error || "Inténtalo más tarde."));
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error(err);
+        setErrorMsg("Error al conectar con la pasarela de Mercado Pago.");
+        setLoading(false);
+      }
+    }
+  };
+
+  const inputStyle = { 
+    background: 'rgba(0,0,0,0.6)', 
+    border: '1px solid rgba(255,255,255,0.1)', 
+    color: 'var(--pure-white)', 
+    padding: '0.8rem', 
+    borderRadius: '6px', 
+    width: '100%', 
+    fontFamily: 'var(--font-secondary)', 
+    marginBottom: '1rem', 
+    fontSize: '1rem', 
+    textAlign: 'center' 
+  };
+
+  const labelStyle = {
+    color: 'var(--off-white)',
+    fontSize: '0.75rem',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    marginBottom: '0.4rem',
+    display: 'block',
+    textAlign: 'left'
+  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--pitch-black)' }}>
-      <div className="glass-panel" style={{ maxWidth: '450px', width: '100%', textAlign: 'center', padding: '4rem 2rem', borderTop: '2px solid var(--electric-cyan)', animation: 'fadeIn 1s ease-out' }}>
+      <div className="glass-panel" style={{ maxWidth: '480px', width: '100%', textAlign: 'center', padding: '3rem 2rem', borderTop: '2px solid var(--electric-cyan)', animation: 'fadeIn 1s ease-out' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '0.5rem' }}>
-           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-             <img src="/logo.png" alt="FULBO Logo" style={{ width: '90px', height: '90px', objectFit: 'contain', filter: 'drop-shadow(0 0 15px rgba(204,255,0,0.5))' }} />
-             <h1 className="glow-text-volt" style={{ fontSize: '4.5rem', margin: 0, letterSpacing: '4px', fontStyle: 'italic', fontWeight: '900' }}>FULBO</h1>
-           </div>
-           <p style={{ color: 'var(--electric-cyan)', letterSpacing: '6px', textTransform: 'uppercase', marginTop: '0', marginBottom: '2rem', fontSize: '0.75rem', fontWeight: 'bold', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', width: '100%' }}>
-             THE ELITE MATCHMAKING ENGINE
-           </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <img src="/logo.png" alt="FULBO Logo" style={{ width: '80px', height: '80px', objectFit: 'contain', filter: 'drop-shadow(0 0 15px rgba(204,255,0,0.5))' }} />
+            <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0, letterSpacing: '4px', fontStyle: 'italic', fontWeight: '900' }}>FULBO</h1>
+          </div>
+          <p style={{ color: 'var(--electric-cyan)', letterSpacing: '5px', textTransform: 'uppercase', marginTop: '0.5rem', marginBottom: '1.5rem', fontSize: '0.7rem', fontWeight: 'bold', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', width: '100%' }}>
+            THE ELITE MATCHMAKING ENGINE
+          </p>
         </div>
+
+        {subscriptionSuccess && (
+          <div style={{ 
+            background: 'rgba(37,211,102,0.1)', 
+            border: '1px solid #25D366', 
+            color: '#25D366', 
+            padding: '1rem', 
+            borderRadius: '6px', 
+            marginBottom: '1.5rem', 
+            fontSize: '0.85rem',
+            fontWeight: 'bold',
+            textAlign: 'center'
+          }}>
+            ¡Suscripción aprobada con éxito! 🎉<br />
+            Inicia sesión para activar tu Matchmaking.
+          </div>
+        )}
         
-        <div style={{ color: 'var(--off-white)', letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '2rem', fontSize: '0.8rem', fontWeight: 'bold' }}>
-          Cloud Security Gateway
+        <div style={{ color: 'var(--off-white)', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '1.5rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
+          {isRegistering ? 'Registro de Club / Liga' : 'Cloud Security Gateway'}
         </div>
         
         {errorMsg && (
-           <div style={{ color: 'var(--crimson-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{errorMsg}</div>
+          <div style={{ color: 'var(--crimson-red)', marginBottom: '1.2rem', fontSize: '0.85rem', fontWeight: '500' }}>
+            ⚠️ {errorMsg}
+          </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
-          <input type="email" placeholder="Email (Host Account)" style={inputStyle} value={email} onChange={e => setEmail(e.target.value)} required />
-          <input type="password" placeholder="ACCESS KEY (Password)" style={inputStyle} value={password} onChange={e => setPassword(e.target.value)} required />
+        <form onSubmit={isRegistering ? handleRegisterSubmit : handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
+          {isRegistering && (
+            <div style={{ textAlign: 'left' }}>
+              <label style={labelStyle}>Nombre de tu Club / Liga</label>
+              <input type="text" placeholder="Ej: Liga Intercountries" style={inputStyle} value={orgName} onChange={e => setOrgName(e.target.value)} required />
+            </div>
+          )}
+
+          <div style={{ textAlign: 'left' }}>
+            <label style={labelStyle}>Email del Organizador (Host)</label>
+            <input type="email" placeholder="host@fulbo.com" style={inputStyle} value={email} onChange={e => setEmail(e.target.value)} required />
+          </div>
+
+          <div style={{ textAlign: 'left' }}>
+            <label style={labelStyle}>Clave de Acceso (Password)</label>
+            <input type="password" placeholder="******" style={inputStyle} value={password} onChange={e => setPassword(e.target.value)} required />
+          </div>
+
+          {isRegistering && (
+            <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
+              <label style={labelStyle}>Selecciona tu Plan</label>
+              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.4rem' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setPlan('trial')}
+                  style={{
+                    flex: 1,
+                    padding: '0.8rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-primary)',
+                    fontWeight: 'bold',
+                    fontSize: '0.8rem',
+                    background: plan === 'trial' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
+                    color: plan === 'trial' ? 'black' : 'white',
+                    border: plan === 'trial' ? '1px solid var(--volt-lime)' : '1px solid rgba(255,255,255,0.1)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  PRUEBA GRATIS<br />
+                  <span style={{ fontSize: '0.65rem', opacity: 0.8 }}>(1 Semana)</span>
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setPlan('monthly')}
+                  style={{
+                    flex: 1,
+                    padding: '0.8rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-primary)',
+                    fontWeight: 'bold',
+                    fontSize: '0.8rem',
+                    background: plan === 'monthly' ? 'var(--electric-cyan)' : 'rgba(255,255,255,0.05)',
+                    color: plan === 'monthly' ? 'black' : 'white',
+                    border: plan === 'monthly' ? '1px solid var(--electric-cyan)' : '1px solid rgba(255,255,255,0.1)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  PREMIUM PRO<br />
+                  <span style={{ fontSize: '0.65rem', opacity: 0.8 }}>$9.999 ARS/mes</span>
+                </button>
+              </div>
+              <p style={{ color: 'var(--off-white)', fontSize: '0.65rem', marginTop: '0.5rem', textAlign: 'center' }}>
+                * Ambos planes limitan los partidos a un máximo de 15 jugadores.
+              </p>
+            </div>
+          )}
           
-          <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '1rem', borderColor: 'var(--electric-cyan)', color: 'var(--electric-cyan)' }}>
-            {loading ? 'AUTENTICANDO...' : 'INITIALIZE MATCHMAKING'}
+          <button 
+            type="submit" 
+            className="btn-primary" 
+            disabled={loading} 
+            style={{ 
+              marginTop: '0.5rem', 
+              borderColor: isRegistering ? (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)') : 'var(--electric-cyan)', 
+              color: isRegistering ? (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)') : 'var(--electric-cyan)' 
+            }}
+          >
+            {loading 
+              ? 'PROCESANDO...' 
+              : (isRegistering 
+                  ? (plan === 'trial' ? 'INICIAR PRUEBA GRATIS ⚡' : 'PAGAR E INICIALIZAR 💳') 
+                  : 'INITIALIZE MATCHMAKING')
+            }
           </button>
         </form>
+
+        <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+          <button 
+            onClick={() => { setIsRegistering(!isRegistering); setErrorMsg(''); }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--electric-cyan)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-primary)',
+              fontSize: '0.85rem',
+              fontWeight: 'bold',
+              letterSpacing: '1px',
+              textTransform: 'uppercase'
+            }}
+          >
+            {isRegistering ? '¿Ya tienes una liga? Inicia Sesión' : '¿No tienes cuenta? Registra tu Club'}
+          </button>
+        </div>
       </div>
     </div>
   );
