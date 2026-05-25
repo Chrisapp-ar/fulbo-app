@@ -3,6 +3,31 @@ import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import PlayerCard from '../components/PlayerCard';
 import EloChart from '../components/EloChart';
 
+const getPlayerBadges = (p) => {
+  const list = [];
+  const pj = p.history?.pj || 0;
+  const pg = p.history?.pg || 0;
+  const goals = p.history?.goals || 0;
+  
+  if (pj >= 2 && (p.condition?.stamina ?? 100) > 60) {
+    list.push('ironman');
+  }
+  if (goals >= 5) {
+    list.push('goleador');
+  }
+  const roleLower = p.role?.toLowerCase() || '';
+  if ((roleLower.includes('def') || roleLower.includes('arq') || roleLower.includes('anc') || roleLower.includes('portero')) && pg >= 3) {
+    list.push('guardian');
+  }
+  if (pj > 0 && (!p.financial?.debt || p.financial.debt === 0)) {
+    list.push('fairplay');
+  }
+  if (p.history?.mvpCount && p.history.mvpCount > 0) {
+    list.push('mvp');
+  }
+  return list;
+};
+
 const CompanionApp = ({ leagueId }) => {
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +127,7 @@ const CompanionApp = ({ leagueId }) => {
                avatar={selectedPlayer.avatar} 
                ovr={Math.round(Math.round((selectedPlayer.stats.pac + selectedPlayer.stats.sho + selectedPlayer.stats.pas + selectedPlayer.stats.dri + selectedPlayer.stats.def + selectedPlayer.stats.phy) / 6) * (0.5 + 0.5 * ((selectedPlayer.condition?.stamina ?? 100) / 100)))} 
                stamina={selectedPlayer.condition?.stamina ?? 100} 
+               badges={getPlayerBadges(selectedPlayer)}
             />
           </div>
 

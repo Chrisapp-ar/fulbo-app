@@ -1,6 +1,14 @@
 import React from 'react';
 
-const PlayerCard = ({ name = "JUGADOR", position = "MC", stats = { pac: 80, sho: 75, pas: 80, dri: 85, def: 60, phy: 70 }, avatar, ovr, stamina = 100 }) => {
+const BADGE_ICONS = {
+  mvp: { icon: '👑', label: 'MVP', color: 'var(--ultimate-gold)', glow: 'rgba(255,215,0,0.5)', desc: 'MVP del último partido' },
+  goleador: { icon: '🎯', label: 'Goleador', color: 'var(--volt-lime)', glow: 'rgba(204,255,0,0.5)', desc: 'Goleador Histórico (5+ goles)' },
+  guardian: { icon: '🛡️', label: 'Guardián', color: 'var(--electric-cyan)', glow: 'rgba(0,240,255,0.5)', desc: 'Muralla Defensiva (3+ victorias)' },
+  ironman: { icon: '⚡', label: 'Ironman', color: 'var(--volt-lime)', glow: 'rgba(204,255,0,0.5)', desc: 'Físico Imparable (Stamina > 60%)' },
+  fairplay: { icon: '🪙', label: 'Fair Play', color: 'var(--ultimate-gold)', glow: 'rgba(255,215,0,0.5)', desc: 'Finanzas Impecables (Sin deudas)' }
+};
+
+const PlayerCard = ({ name = "JUGADOR", position = "MC", stats = { pac: 80, sho: 75, pas: 80, dri: 85, def: 60, phy: 70 }, avatar, ovr, stamina = 100, badges = [] }) => {
   const displayOvr = ovr !== undefined ? ovr : Math.round((stats.pac + stats.sho + stats.pas + stats.dri + stats.def + stats.phy) / 6);
 
   return (
@@ -29,6 +37,44 @@ const PlayerCard = ({ name = "JUGADOR", position = "MC", stats = { pac: 80, sho:
       e.currentTarget.style.boxShadow = 'inset 0 0 25px rgba(255,215,0,0.15)';
     }}
     >
+      {/* PlayStyles / Badges column */}
+      {Array.isArray(badges) && badges.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: '8px',
+          top: '55px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          zIndex: 5
+        }}>
+          {badges.map(b => {
+            const badge = BADGE_ICONS[b];
+            if (!badge) return null;
+            return (
+              <div key={b} title={`${badge.label}: ${badge.desc}`} style={{
+                width: '16px',
+                height: '16px',
+                background: 'rgba(5,5,7,0.85)',
+                border: `1px solid ${badge.color}`,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.65rem',
+                filter: `drop-shadow(0 0 4px ${badge.glow})`,
+                transition: 'transform 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {badge.icon}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <span style={{ fontSize: '1.6rem', fontWeight: '900', color: 'var(--pure-white)', fontFamily: 'var(--font-primary)', lineHeight: '1' }}>{displayOvr}</span>

@@ -12,6 +12,39 @@ const DEFAULT_ROSTER = [
   { id: '4', name: 'Samuel', role: 'Arquero', avatar: '🧤', stats: { pac: 72, sho: 50, pas: 65, dri: 60, def: 92, phy: 94 } },
 ].map(p => ({ ...p, history: { pj: 0, pg: 0, goals: 0 }, glicko: { rating: 1500, rd: 350, vol: 0.06, history: [1500] }, financial: { debt: 0, isBanned: false }, condition: { stamina: 100 } }));
 
+const BADGE_ICONS = {
+  mvp: { icon: '👑', label: 'MVP', color: 'var(--ultimate-gold)', glow: 'rgba(255,215,0,0.5)', desc: 'MVP del último partido' },
+  goleador: { icon: '🎯', label: 'Goleador', color: 'var(--volt-lime)', glow: 'rgba(204,255,0,0.5)', desc: 'Goleador Histórico (5+ goles)' },
+  guardian: { icon: '🛡️', label: 'Guardián', color: 'var(--electric-cyan)', glow: 'rgba(0,240,255,0.5)', desc: 'Muralla Defensiva (3+ victorias)' },
+  ironman: { icon: '⚡', label: 'Ironman', color: 'var(--volt-lime)', glow: 'rgba(204,255,0,0.5)', desc: 'Físico Imparable (Stamina > 60%)' },
+  fairplay: { icon: '🪙', label: 'Fair Play', color: 'var(--ultimate-gold)', glow: 'rgba(255,215,0,0.5)', desc: 'Finanzas Impecables (Sin deudas)' }
+};
+
+const getPlayerBadges = (p) => {
+  const list = [];
+  const pj = p.history?.pj || 0;
+  const pg = p.history?.pg || 0;
+  const goals = p.history?.goals || 0;
+  
+  if (pj >= 2 && (p.condition?.stamina ?? 100) > 60) {
+    list.push('ironman');
+  }
+  if (goals >= 5) {
+    list.push('goleador');
+  }
+  const roleLower = p.role?.toLowerCase() || '';
+  if ((roleLower.includes('def') || roleLower.includes('arq') || roleLower.includes('anc') || roleLower.includes('portero')) && pg >= 3) {
+    list.push('guardian');
+  }
+  if (pj > 0 && (!p.financial?.debt || p.financial.debt === 0)) {
+    list.push('fairplay');
+  }
+  if (p.history?.mvpCount && p.history.mvpCount > 0) {
+    list.push('mvp');
+  }
+  return list;
+};
+
 const Dashboard = ({ onLogout }) => {
   const [roster, setRoster] = useState(() => {
     const saved = localStorage.getItem('fulbo_roster');
@@ -59,6 +92,10 @@ const Dashboard = ({ onLogout }) => {
 
   const [viewMode, setViewMode] = useState('builder'); 
   const [selectedPlayerDetails, setSelectedPlayerDetails] = useState(null);
+  
+  const [showPackOpening, setShowPackOpening] = useState(false);
+  const [walkoutPlayer, setWalkoutPlayer] = useState(null);
+  const [walkoutRevealStage, setWalkoutRevealStage] = useState(0);
 
   const renderPlayerDetailsModal = () => {
     if (!selectedPlayerDetails) return null;
@@ -125,6 +162,7 @@ const Dashboard = ({ onLogout }) => {
               avatar={selectedPlayerDetails.avatar} 
               ovr={calcOvr(selectedPlayerDetails)}
               stamina={selectedPlayerDetails.condition?.stamina ?? 100}
+              badges={getPlayerBadges(selectedPlayerDetails)}
             />
             <span style={{ 
               marginTop: '1rem', 
@@ -182,6 +220,26 @@ const Dashboard = ({ onLogout }) => {
                 </div>
               </div>
             </div>
+
+            {/* PlayStyles / Logros Details */}
+            {getPlayerBadges(selectedPlayerDetails).length > 0 && (
+              <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+                <h4 style={{ color: 'var(--ultimate-gold)', fontSize: '0.8rem', marginBottom: '0.6rem', letterSpacing: '1.5px', fontFamily: 'var(--font-primary)' }}>PLAYSTYLES / LOGROS</h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
+                  {getPlayerBadges(selectedPlayerDetails).map(b => {
+                    const badge = BADGE_ICONS[b];
+                    if (!badge) return null;
+                    return (
+                      <div key={b} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.5)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: `1px solid ${badge.color}` }}>
+                        <span style={{ fontSize: '1rem', filter: `drop-shadow(0 0 4px ${badge.glow})` }}>{badge.icon}</span>
+                        <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 'bold', fontFamily: 'var(--font-secondary)' }}>{badge.label}</span>
+                        <span style={{ color: 'var(--off-white)', fontSize: '0.65rem', fontFamily: 'var(--font-secondary)' }}>({badge.desc})</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -345,9 +403,23 @@ const Dashboard = ({ onLogout }) => {
 
       setTeamA(tA);
       setTeamB(tB);
+
+      const allBalanced = [...tA, ...tB];
+      let bestPlayer = null;
+      let highestOvr = -1;
+      allBalanced.forEach(p => {
+        const ovr = calcOvr(p);
+        if (ovr > highestOvr) {
+          highestOvr = ovr;
+          bestPlayer = p;
+        }
+      });
+      setWalkoutPlayer(bestPlayer);
+
       setIsLoading(false);
-      setIsDrafting(true);
-      setRevealedCount(0);
+      setShowPackOpening(true);
+      setPackOpened(false);
+      setWalkoutRevealStage(0);
     }, 600);
   };
 
@@ -425,6 +497,16 @@ const Dashboard = ({ onLogout }) => {
     
     const currentQuota = pitchCost && (teamA.length + teamB.length) > 0 ? (parseFloat(pitchCost) / (teamA.length + teamB.length)) : 0;
     
+    // Calculate MVP of this match (highest goal scorer)
+    let mvpId = null;
+    let maxGoals = 0;
+    Object.entries(playerGoals).forEach(([id, goals]) => {
+       if (goals > maxGoals) {
+          maxGoals = goals;
+          mvpId = id;
+       }
+    });
+
     [...teamA, ...teamB].forEach(matchPlayer => {
        const existingIndex = updatedRoster.findIndex(p => p.id === matchPlayer.id || p.name.toLowerCase() === matchPlayer.name.toLowerCase());
        
@@ -436,7 +518,8 @@ const Dashboard = ({ onLogout }) => {
        const staminaLoss = Math.floor(Math.random() * 16 + 15);
        
        const newRating = newGlickoMap[matchPlayer.id]?.rating || (existingIndex >= 0 ? updatedRoster[existingIndex].glicko?.rating : 1500) || 1500;
-       
+       const isMvp = matchPlayer.id === mvpId;
+
        if (existingIndex >= 0) {
           const ep = updatedRoster[existingIndex];
           const prevHistory = ep.glicko?.history || [1500];
@@ -445,7 +528,8 @@ const Dashboard = ({ onLogout }) => {
              history: { 
                  pj: (ep.history?.pj || 0) + 1, 
                  pg: (ep.history?.pg || 0) + (winnerMatches ? 1 : 0), 
-                 goals: (ep.history?.goals || 0) + (playerGoals[matchPlayer.id] || 0) 
+                 goals: (ep.history?.goals || 0) + (playerGoals[matchPlayer.id] || 0),
+                 mvpCount: (ep.history?.mvpCount || 0) + (isMvp ? 1 : 0)
              },
              glicko: {
                  ...(newGlickoMap[matchPlayer.id] || ep.glicko),
@@ -462,7 +546,12 @@ const Dashboard = ({ onLogout }) => {
        } else {
           updatedRoster.push({
              ...matchPlayer,
-             history: { pj: 1, pg: winnerMatches ? 1 : 0, goals: playerGoals[matchPlayer.id] || 0 },
+             history: { 
+                 pj: 1, 
+                 pg: winnerMatches ? 1 : 0, 
+                 goals: playerGoals[matchPlayer.id] || 0,
+                 mvpCount: isMvp ? 1 : 0
+             },
              glicko: {
                  ...(newGlickoMap[matchPlayer.id] || { rating: 1500, rd: 350, vol: 0.06 }),
                  history: [1500, newRating]
@@ -770,13 +859,172 @@ const Dashboard = ({ onLogout }) => {
 
   // DEFAULT BUILDER MODE
   
-  // Limpiar duplicados por nombre
-  const uniqueRegistrationsMap = {};
-  eventRegistrations.forEach(r => { uniqueRegistrationsMap[r.name.toLowerCase().trim()] = r; });
-  const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
+  const PackOpeningStyles = () => (
+    <style>{`
+      @keyframes packGlow {
+        0% { box-shadow: 0 0 20px rgba(255,215,0,0.3); }
+        50% { box-shadow: 0 0 50px rgba(255,215,0,0.7); }
+        100% { box-shadow: 0 0 20px rgba(255,215,0,0.3); }
+      }
+      @keyframes glitch {
+        0% { transform: translate(0) }
+        20% { transform: translate(-2px, 2px) }
+        40% { transform: translate(-2px, -2px) }
+        60% { transform: translate(2px, 2px) }
+        80% { transform: translate(2px, -2px) }
+        100% { transform: translate(0) }
+      }
+      @keyframes cardReveal {
+        0% { transform: scale(0.3) rotateY(90deg); opacity: 0; }
+        70% { transform: scale(1.15) rotateY(-10deg); opacity: 1; }
+        100% { transform: scale(1) rotateY(0deg); opacity: 1; }
+      }
+      .pack-pulsating {
+        animation: packGlow 2s infinite ease-in-out;
+      }
+      .pack-glitch {
+        animation: glitch 0.15s infinite;
+      }
+      .card-reveal-anim {
+        animation: cardReveal 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      }
+    `}</style>
+  );
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', animation: 'fadeIn 0.5s ease-out' }}>
+      {showPackOpening && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'radial-gradient(circle at center, #0F0F16 0%, #050507 100%)',
+          zIndex: 10000,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          overflow: 'hidden'
+        }}>
+          <PackOpeningStyles />
+          
+          <div style={{
+            position: 'absolute',
+            width: '200%',
+            height: '200%',
+            background: 'repeating-linear-gradient(45deg, rgba(204,255,0,0.01) 0px, rgba(204,255,0,0.01) 10px, transparent 10px, transparent 20px)',
+            transform: 'rotate(-25deg)',
+            zIndex: 1
+          }} />
+
+          {/* Stage 0: Unopened Pack */}
+          {walkoutRevealStage === 0 && (
+            <div style={{ zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
+              <h2 className="glow-text-volt" style={{ fontSize: '3rem', letterSpacing: '8px', fontStyle: 'italic', fontWeight: '900' }}>
+                DRAFT PACK OPENING
+              </h2>
+              <p style={{ color: 'var(--electric-cyan)', letterSpacing: '4px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                LA IA HA GENERADO EL BALANCEO DE EQUIPOS
+              </p>
+              
+              <div 
+                onClick={() => {
+                  setWalkoutRevealStage(1);
+                  setTimeout(() => {
+                    setWalkoutRevealStage(2);
+                  }, 1200);
+                }}
+                className="pack-pulsating"
+                style={{
+                  width: '180px',
+                  height: '270px',
+                  background: 'linear-gradient(135deg, #FFD700 0%, #B8860B 50%, #8B6508 100%)',
+                  border: '3px solid #FFF',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '1.5rem 1rem',
+                  boxShadow: '0 0 30px rgba(255,215,0,0.4)',
+                  transform: 'perspective(1000px) rotateY(-15deg) rotateX(10deg)',
+                  transition: 'transform 0.3s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'perspective(1000px) rotateY(0deg) rotateX(0deg) scale(1.05)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'perspective(1000px) rotateY(-15deg) rotateX(10deg)'}
+              >
+                <div style={{ border: '1px solid rgba(255,255,255,0.4)', width: '100%', height: '100%', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 0.5rem' }}>
+                  <div style={{ color: 'white', fontWeight: '900', fontSize: '1.8rem', fontStyle: 'italic', letterSpacing: '2px', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>DRAFT</div>
+                  <div style={{ fontSize: '3rem', filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.6))' }}>⚡</div>
+                  <div style={{ color: 'white', fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '4px' }}>OPEN</div>
+                </div>
+              </div>
+              
+              <p style={{ color: 'var(--off-white)', letterSpacing: '2px', fontSize: '0.75rem', marginTop: '1rem', animation: 'pulse 1.5s infinite' }}>
+                [ Toca el sobre para abrir el Pack ]
+              </p>
+            </div>
+          )}
+
+          {/* Stage 1: Glitch / Opening Effect */}
+          {walkoutRevealStage === 1 && (
+            <div style={{ zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: '#FFF', animation: 'pulse 0.1s infinite' }}>
+              <div className="pack-glitch" style={{ fontSize: '5rem', fontWeight: '900', color: 'black', fontStyle: 'italic', letterSpacing: '10px' }}>
+                ABRIENDO SOBRE...
+              </div>
+            </div>
+          )}
+
+          {/* Stage 2: Walkout Reveal */}
+          {walkoutRevealStage === 2 && walkoutPlayer && (
+            <div style={{ zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', width: '100%', maxWidth: '600px', textAlign: 'center' }}>
+              <h2 className="glow-text-volt" style={{ fontSize: '2.5rem', fontWeight: '900', fontStyle: 'italic', margin: 0, letterSpacing: '4px' }}>
+                ★ WALKOUT DE LA IA ★
+              </h2>
+              <p style={{ color: 'var(--electric-cyan)', fontSize: '0.85rem', letterSpacing: '3px', margin: 0 }}>
+                EL JUGADOR DE MAYOR RATING EN EL DRAFT
+              </p>
+
+              <div className="card-reveal-anim" style={{ transform: 'scale(1.5)', margin: '2.5rem 0', filter: 'drop-shadow(0 0 35px rgba(204,255,0,0.4))' }}>
+                <PlayerCard 
+                  name={walkoutPlayer.name}
+                  position={walkoutPlayer.role.substring(0,3).toUpperCase()}
+                  stats={walkoutPlayer.stats}
+                  avatar={walkoutPlayer.avatar}
+                  ovr={calcOvr(walkoutPlayer)}
+                  stamina={walkoutPlayer.condition?.stamina ?? 100}
+                  badges={getPlayerBadges(walkoutPlayer)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem' }}>
+                <h3 style={{ color: 'white', fontSize: '2.2rem', margin: 0, fontWeight: '900', fontStyle: 'italic', letterSpacing: '1px' }}>
+                  {walkoutPlayer.name.toUpperCase()}
+                </h3>
+                <p style={{ color: 'var(--ultimate-gold)', fontWeight: 'bold', fontSize: '0.9rem', letterSpacing: '2px', margin: 0 }}>
+                  OVR: {calcOvr(walkoutPlayer)} | {walkoutPlayer.role.toUpperCase()}
+                </p>
+              </div>
+
+              <button 
+                onClick={() => {
+                  setShowPackOpening(false);
+                  setIsDrafting(true);
+                  setRevealedCount(0);
+                }} 
+                className="btn-primary" 
+                style={{ width: 'auto', padding: '1rem 3rem', fontSize: '1.2rem', marginTop: '1.5rem', boxShadow: '0 0 20px rgba(204,255,0,0.4)' }}
+              >
+                REVELAR EQUIPOS COMPLETOS ⚽
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <header style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
         <div className="responsive-header-actions" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', gap: '1rem' }}>
           <div className="responsive-flex-wrap" style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -957,7 +1205,7 @@ const Dashboard = ({ onLogout }) => {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
                     {teamA.slice(0, Math.ceil(revealedCount / 2)).map(p => (
                       <div key={p.id} onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
-                        <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} />
+                        <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} />
                       </div>
                     ))}
                   </div>
@@ -978,7 +1226,7 @@ const Dashboard = ({ onLogout }) => {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
                     {teamB.slice(0, Math.floor(revealedCount / 2)).map(p => (
                       <div key={p.id} onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
-                        <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} />
+                        <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} />
                       </div>
                     ))}
                   </div>
