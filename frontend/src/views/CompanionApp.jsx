@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import PlayerCard from '../components/PlayerCard';
+import EloChart from '../components/EloChart';
 
 const CompanionApp = ({ leagueId }) => {
   const [roster, setRoster] = useState([]);
@@ -59,19 +60,68 @@ const CompanionApp = ({ leagueId }) => {
 
   if (selectedPlayer) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', animation: 'fadeIn 0.3s' }}>
-        <button onClick={() => setSelectedPlayer(null)} style={{ background: 'transparent', border: '1px solid var(--electric-cyan)', color: 'var(--electric-cyan)', padding: '0.8rem 2rem', borderRadius: '30px', marginBottom: '2rem', cursor: 'pointer', fontFamily: 'var(--font-primary)' }}>⬅ VOLVER AL LEADERBOARD</button>
-        <div style={{ transform: 'scale(1.2)' }}>
-          <PlayerCard 
-             name={selectedPlayer.name} 
-             position={selectedPlayer.role.substring(0,3).toUpperCase()} 
-             stats={selectedPlayer.stats} 
-             avatar={selectedPlayer.avatar} 
-             ovr={Math.round(Math.round((selectedPlayer.stats.pac + selectedPlayer.stats.sho + selectedPlayer.stats.pas + selectedPlayer.stats.dri + selectedPlayer.stats.def + selectedPlayer.stats.phy) / 6) * (0.5 + 0.5 * ((selectedPlayer.condition?.stamina ?? 100) / 100)))} 
-             stamina={selectedPlayer.condition?.stamina ?? 100} 
-          />
+      <div style={{ 
+        minHeight: '100vh', 
+        background: 'var(--pitch-black)', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        padding: '2rem 1rem', 
+        overflowY: 'auto', 
+        animation: 'fadeIn 0.3s' 
+      }}>
+        <button 
+          onClick={() => setSelectedPlayer(null)} 
+          style={{ 
+            background: 'transparent', 
+            border: '1px solid var(--electric-cyan)', 
+            color: 'var(--electric-cyan)', 
+            padding: '0.8rem 2rem', 
+            borderRadius: '30px', 
+            marginBottom: '2rem', 
+            cursor: 'pointer', 
+            fontFamily: 'var(--font-primary)' 
+          }}
+        >
+          ⬅ VOLVER AL LEADERBOARD
+        </button>
+        
+        <div style={{ 
+          width: '100%', 
+          maxWidth: '450px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          gap: '2.5rem' 
+        }}>
+          <div style={{ transform: 'scale(1.05)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <PlayerCard 
+               name={selectedPlayer.name} 
+               position={selectedPlayer.role.substring(0,3).toUpperCase()} 
+               stats={selectedPlayer.stats} 
+               avatar={selectedPlayer.avatar} 
+               ovr={Math.round(Math.round((selectedPlayer.stats.pac + selectedPlayer.stats.sho + selectedPlayer.stats.pas + selectedPlayer.stats.dri + selectedPlayer.stats.def + selectedPlayer.stats.phy) / 6) * (0.5 + 0.5 * ((selectedPlayer.condition?.stamina ?? 100) / 100)))} 
+               stamina={selectedPlayer.condition?.stamina ?? 100} 
+            />
+          </div>
+
+          <div style={{ width: '100%' }}>
+            <EloChart history={selectedPlayer.glicko?.history || [1500, selectedPlayer.glicko?.rating || 1500]} />
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%' }}>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--off-white)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Partidos</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>{selectedPlayer.history?.pj || 0}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--off-white)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rango Competitivo</div>
+              <div className="glow-text-volt" style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.2rem' }}>{Math.round(selectedPlayer.glicko?.rating || 1500)} MMR</div>
+            </div>
+          </div>
+
+          <p style={{ color: 'var(--off-white)', fontSize: '0.8rem', textAlign: 'center', marginTop: '1rem' }}>Comparte tu Ficha Táctica 📸</p>
         </div>
-        <p style={{ color: 'var(--off-white)', marginTop: '3rem', fontSize: '0.9rem', textAlign: 'center' }}>Comparte tu Player Card 📸</p>
       </div>
     );
   }

@@ -7,7 +7,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function createAdmin() {
   const { data, error } = await supabase.auth.signUp({
-    email: 'chrislemos@fulbo.app',
+    email: 'chris.r.lemos@gmail.com',
     password: 'Dhl12345',
   });
   if (error) {

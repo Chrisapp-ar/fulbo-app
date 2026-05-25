@@ -3,13 +3,14 @@ import glicko2 from 'glicko2';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import PlayerCard from '../components/PlayerCard';
 import AvatarSelector from '../components/AvatarSelector';
+import EloChart from '../components/EloChart';
 
 const DEFAULT_ROSTER = [
   { id: '1', name: 'Riquelme', role: 'Mediocampo', avatar: '🌟', stats: { pac: 70, sho: 85, pas: 95, dri: 92, def: 40, phy: 75 } },
   { id: '2', name: 'Mascherano', role: 'Defensor', avatar: '🛡️', stats: { pac: 75, sho: 60, pas: 80, dri: 70, def: 95, phy: 90 } },
   { id: '3', name: 'Batistuta', role: 'Delantero', avatar: '🔥', stats: { pac: 85, sho: 96, pas: 70, dri: 80, def: 45, phy: 88 } },
   { id: '4', name: 'Samuel', role: 'Arquero', avatar: '🧤', stats: { pac: 72, sho: 50, pas: 65, dri: 60, def: 92, phy: 94 } },
-].map(p => ({ ...p, history: { pj: 0, pg: 0, goals: 0 }, glicko: { rating: 1500, rd: 350, vol: 0.06 }, financial: { debt: 0, isBanned: false }, condition: { stamina: 100 } }));
+].map(p => ({ ...p, history: { pj: 0, pg: 0, goals: 0 }, glicko: { rating: 1500, rd: 350, vol: 0.06, history: [1500] }, financial: { debt: 0, isBanned: false }, condition: { stamina: 100 } }));
 
 const Dashboard = ({ onLogout }) => {
   const [roster, setRoster] = useState(() => {
@@ -57,6 +58,7 @@ const Dashboard = ({ onLogout }) => {
   }, []);
 
   const [viewMode, setViewMode] = useState('builder'); 
+  const [selectedPlayerDetails, setSelectedPlayerDetails] = useState(null);
   
   const [activeEvent, setActiveEvent] = useState(null);
   const [eventFormat, setEventFormat] = useState(10);
@@ -305,8 +307,11 @@ const Dashboard = ({ onLogout }) => {
        let debt = currentQuota > 0 && !paymentsMap[matchPlayer.id] ? currentQuota : 0;
        const staminaLoss = Math.floor(Math.random() * 16 + 15);
        
+       const newRating = newGlickoMap[matchPlayer.id]?.rating || (existingIndex >= 0 ? updatedRoster[existingIndex].glicko?.rating : 1500) || 1500;
+       
        if (existingIndex >= 0) {
           const ep = updatedRoster[existingIndex];
+          const prevHistory = ep.glicko?.history || [1500];
           updatedRoster[existingIndex] = {
              ...ep,
              history: { 
@@ -314,7 +319,10 @@ const Dashboard = ({ onLogout }) => {
                  pg: (ep.history?.pg || 0) + (winnerMatches ? 1 : 0), 
                  goals: (ep.history?.goals || 0) + (playerGoals[matchPlayer.id] || 0) 
              },
-             glicko: newGlickoMap[matchPlayer.id] || ep.glicko,
+             glicko: {
+                 ...(newGlickoMap[matchPlayer.id] || ep.glicko),
+                 history: [...prevHistory, newRating]
+             },
              financial: { 
                  debt: (ep.financial?.debt || 0) + debt, 
                  isBanned: ((ep.financial?.debt || 0) + debt) > 0 
@@ -327,7 +335,10 @@ const Dashboard = ({ onLogout }) => {
           updatedRoster.push({
              ...matchPlayer,
              history: { pj: 1, pg: winnerMatches ? 1 : 0, goals: playerGoals[matchPlayer.id] || 0 },
-             glicko: newGlickoMap[matchPlayer.id] || { rating: 1500, rd: 350, vol: 0.06 },
+             glicko: {
+                 ...(newGlickoMap[matchPlayer.id] || { rating: 1500, rd: 350, vol: 0.06 }),
+                 history: [1500, newRating]
+             },
              financial: { debt, isBanned: debt > 0 },
              condition: { stamina: Math.max(0, 100 - staminaLoss) }
           });
@@ -518,7 +529,7 @@ const Dashboard = ({ onLogout }) => {
                 const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
                 const mmr = Math.round(p.glicko?.rating || 1500);
                 return (
-                  <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: i%2===0?'transparent':'rgba(0,0,0,0.2)' }}>
+                  <tr key={p.id} className="clickable-row" onClick={() => setSelectedPlayerDetails(p)} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: i%2===0?'transparent':'rgba(0,0,0,0.2)' }}>
                     <td style={{ padding: '1rem', fontWeight: 'bold', fontSize: '1.2rem', color: i<3?'var(--ultimate-gold)':'var(--off-white)' }}>{i+1}</td>
                     <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       <div style={{width:'35px', height:'35px', borderRadius:'50%', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--pitch-black)'}}>
@@ -530,7 +541,9 @@ const Dashboard = ({ onLogout }) => {
                       </div>
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 'bold' }}>{calcOvr(p)}</td>
-                    <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--volt-lime)', fontWeight: '900', fontSize: '1.1rem', textShadow: '0 0 5px rgba(204,255,0,0.5)' }}>{mmr}</td>
+                    <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--volt-lime)', fontWeight: '900', fontSize: '1.1rem', textShadow: '0 0 5px rgba(204,255,0,0.5)' }}>
+                      {mmr} <span style={{ fontSize: '0.8rem', verticalAlign: 'middle', opacity: 0.7 }} title="Ver Historial Elo 📈">📈</span>
+                    </td>
                     <td style={{ padding: '1rem', textAlign: 'center' }}>{pj}</td>
                     <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--volt-lime)', fontWeight: 'bold' }}>{pg}</td>
                     <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--ultimate-gold)', fontWeight: 'bold' }}>{p.history?.goals || 0}</td>
@@ -877,6 +890,131 @@ const Dashboard = ({ onLogout }) => {
               </div>
               )}
             </>
+          )}
+          {/* Player Details Modal (MMR Graph & Card) */}
+          {selectedPlayerDetails && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.85)',
+              backdropFilter: 'blur(10px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '1rem',
+              animation: 'fadeIn 0.25s ease-out'
+            }}>
+              <div className="glass-panel responsive-flex" style={{
+                maxWidth: '900px',
+                width: '100%',
+                display: 'flex',
+                gap: '2.5rem',
+                padding: '2.5rem',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                position: 'relative',
+                maxHeight: '90vh',
+                overflowY: 'auto'
+              }}>
+                {/* Close Button */}
+                <button 
+                  onClick={() => setSelectedPlayerDetails(null)} 
+                  style={{
+                    position: 'absolute',
+                    top: '1rem',
+                    right: '1.2rem',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--off-white)',
+                    fontSize: '1.8rem',
+                    cursor: 'pointer',
+                    transition: 'color 0.2s',
+                    fontFamily: 'var(--font-secondary)'
+                  }}
+                  onMouseEnter={(e) => e.target.style.color = 'var(--crimson-red)'}
+                  onMouseLeave={(e) => e.target.style.color = 'var(--off-white)'}
+                >
+                  &times;
+                </button>
+
+                {/* Left side: FUT Card */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <PlayerCard 
+                    name={selectedPlayerDetails.name} 
+                    position={selectedPlayerDetails.role.substring(0,3).toUpperCase()} 
+                    stats={selectedPlayerDetails.stats} 
+                    avatar={selectedPlayerDetails.avatar} 
+                    ovr={calcOvr(selectedPlayerDetails)}
+                    stamina={selectedPlayerDetails.condition?.stamina ?? 100}
+                  />
+                  <span style={{ 
+                    marginTop: '1rem', 
+                    color: 'var(--ultimate-gold)', 
+                    fontFamily: 'var(--font-primary)', 
+                    fontSize: '1.3rem', 
+                    fontWeight: '900',
+                    letterSpacing: '1px'
+                  }}>
+                    {selectedPlayerDetails.role.toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Right side: Elo chart & Stats */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div>
+                    <h2 className="glow-text-volt" style={{ fontSize: '2.2rem', margin: '0 0 0.2rem 0' }}>{selectedPlayerDetails.name}</h2>
+                    <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>
+                      Estadísticas del Rango Competitivo (Glicko-2)
+                    </p>
+                  </div>
+
+                  {/* Chart */}
+                  <EloChart history={selectedPlayerDetails.glicko?.history || [1500, selectedPlayerDetails.glicko?.rating || 1500]} />
+
+                  {/* Stats Summary Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                      <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rating Actual</div>
+                      <div className="glow-text-volt" style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '0.2rem' }}>
+                        {Math.round(selectedPlayerDetails.glicko?.rating || 1500)}
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                      <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Partidos Jugados</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>
+                        {selectedPlayerDetails.history?.pj || 0}
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                      <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Win Rate %</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--electric-cyan)' }}>
+                        {selectedPlayerDetails.history?.pj > 0 
+                          ? Math.round(((selectedPlayerDetails.history?.pg || 0) / selectedPlayerDetails.history.pj) * 100)
+                          : 0}%
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                      <div style={{ color: 'var(--off-white)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Desviación (RD)</div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '0.4rem', color: 'var(--off-white)' }}>
+                        ±{Math.round(selectedPlayerDetails.glicko?.rd || 350)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </main>
       </div>
