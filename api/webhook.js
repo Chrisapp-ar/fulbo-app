@@ -72,11 +72,10 @@ export default async function handler(req, res) {
         const { data: leagueState, error: fetchError } = await supabase
           .from('league_state')
           .select('roster')
-          .eq('host_id', hostId)
-          .single();
+          .eq('host_id', hostId);
 
-        if (leagueState && Array.isArray(leagueState.roster)) {
-          const updatedRoster = leagueState.roster.map(player => {
+        if (leagueState && leagueState.length > 0 && Array.isArray(leagueState[0].roster)) {
+          const updatedRoster = leagueState[0].roster.map(player => {
             if (player.id === playerId || (player.id && player.id.toString() === playerId.toString())) {
               return {
                 ...player,

@@ -39,11 +39,10 @@ export default async function handler(req, res) {
     const { data: hostData, error: hostError } = await supabase
       .from('hosts')
       .select('mercadopago_access_token')
-      .eq('id', hostId)
-      .single();
+      .eq('id', hostId);
 
-    if (hostData && hostData.mercadopago_access_token) {
-      accessToken = hostData.mercadopago_access_token;
+    if (hostData && hostData.length > 0 && hostData[0].mercadopago_access_token) {
+      accessToken = hostData[0].mercadopago_access_token;
     }
 
     if (!accessToken) {
