@@ -586,7 +586,7 @@ const Dashboard = ({ onLogout }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {teamA.map(p => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.4)', padding: '1rem', borderRadius: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div onClick={() => setSelectedPlayerDetails(p)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
                     <div style={{width:'40px', height:'40px', borderRadius:'50%', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--pitch-black)'}}>
                       {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
                     </div>
@@ -609,7 +609,7 @@ const Dashboard = ({ onLogout }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {teamB.map(p => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.4)', padding: '1rem', borderRadius: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div onClick={() => setSelectedPlayerDetails(p)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
                     <div style={{width:'40px', height:'40px', borderRadius:'50%', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--pitch-black)'}}>
                       {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
                     </div>
@@ -759,7 +759,7 @@ const Dashboard = ({ onLogout }) => {
                 <ul style={{ listStyle: 'none' }}>
                   {roster.map(p => (
                     <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div onClick={() => setSelectedPlayerDetails(p)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
                         {p.avatar && (
                           <div style={{ width: '25px', height: '25px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {p.avatar.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'0.8rem'}}>{p.avatar}</span>}
@@ -824,7 +824,11 @@ const Dashboard = ({ onLogout }) => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
-                    {teamA.slice(0, Math.ceil(revealedCount / 2)).map(p => <div key={p.id} style={{ animation: 'fadeIn 0.4s ease-out' }}><PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} /></div>)}
+                    {teamA.slice(0, Math.ceil(revealedCount / 2)).map(p => (
+                      <div key={p.id} onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
+                        <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} />
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -841,7 +845,11 @@ const Dashboard = ({ onLogout }) => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
-                    {teamB.slice(0, Math.floor(revealedCount / 2)).map(p => <div key={p.id} style={{ animation: 'fadeIn 0.4s ease-out' }}><PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} /></div>)}
+                    {teamB.slice(0, Math.floor(revealedCount / 2)).map(p => (
+                      <div key={p.id} onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
+                        <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} />
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
