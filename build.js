@@ -1,6 +1,9 @@
 import fs from 'fs';
 import { execSync } from 'child_process';
 
+console.log('Installing frontend dependencies...');
+execSync('npm install --prefix frontend', { stdio: 'inherit' });
+
 console.log('Building frontend...');
 execSync('npm run build --prefix frontend', { stdio: 'inherit' });
 
