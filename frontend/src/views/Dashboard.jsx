@@ -663,7 +663,20 @@ const Dashboard = ({ onLogout }) => {
   };
   
   const healPlayer = (id) => {
-    setRoster(roster.map(p => p.id === id ? { ...p, condition: { stamina: 100 } } : p));
+    setRoster(roster.map(p => {
+      if (p.id === id) {
+        const isCurrentlyResting = p.condition?.isResting || false;
+        return {
+          ...p,
+          condition: {
+            ...p.condition,
+            isResting: !isCurrentlyResting,
+            stamina: isCurrentlyResting ? 100 : 50
+          }
+        };
+      }
+      return p;
+    }));
   };
 
   const calcRawOvr = (stats) => {
@@ -1601,7 +1614,7 @@ const Dashboard = ({ onLogout }) => {
                             <div style={{ width: `${p.condition?.stamina ?? 100}%`, height: '100%', background: (p.condition?.stamina ?? 100) > 60 ? '#25D366' : ((p.condition?.stamina ?? 100) > 30 ? '#FFA500' : '#FF3B30'), transition: 'width 0.3s' }}></div>
                           </div>
                         </div>
-                        <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: (p.condition?.stamina ?? 100) < 100 ? 1 : 0.2 }} title="Curar / Descansar">🏥</button>
+                        <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: p.condition?.isResting ? 1 : 0.2 }} title="Curar / Descansar">🏥</button>
                         <button onClick={() => startEdit(p)} style={{ background: 'none', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '1rem', opacity: 0.8 }} title="Editar jugador">✏️</button>
                         <button onClick={() => removePlayer(p.id)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.7 }} title="Eliminar jugador">&times;</button>
                       </div>
