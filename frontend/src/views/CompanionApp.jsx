@@ -56,6 +56,31 @@ const CompanionApp = ({ leagueId }) => {
     }
   };
 
+  const handlePayMP = async (playerId, amount) => {
+    try {
+      const response = await fetch('/api/create-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hostId: leagueId,
+          playerId: playerId,
+          amount: amount,
+          title: `Cuota Cancha FULBO - ${selectedPlayer?.name || 'Jugador'}`,
+          redirectUrl: window.location.href
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.initPoint) {
+        window.open(data.initPoint, '_blank');
+      } else {
+        alert("Error al crear preferencia de Mercado Pago: " + (data.error || "Inténtalo más tarde. Asegúrate de configurar Mercado Pago."));
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error al conectar con la pasarela de pagos.");
+    }
+  };
+
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
       const fetchLeague = async () => {
@@ -204,6 +229,46 @@ const CompanionApp = ({ leagueId }) => {
               <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--crimson-red)' }}>{selectedPlayer.history?.pp || 0}</div>
             </div>
           </div>
+
+          {selectedPlayer.financial?.debt > 0 && (
+            <div style={{
+              width: '100%',
+              background: 'rgba(255,215,0,0.05)',
+              border: '1px solid rgba(255,215,0,0.2)',
+              padding: '1.2rem',
+              borderRadius: '12px',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.8rem',
+              alignItems: 'center',
+              marginTop: '0.5rem'
+            }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--ultimate-gold)', fontWeight: 'bold', letterSpacing: '1px' }}>
+                ⚠️ TIENES UNA DEUDA PENDIENTE: ${selectedPlayer.financial.debt.toFixed(2)}
+              </div>
+              <button 
+                onClick={() => handlePayMP(selectedPlayer.id, selectedPlayer.financial.debt)} 
+                className="btn-primary" 
+                style={{
+                  background: '#009EE3',
+                  borderColor: '#009EE3',
+                  color: 'white',
+                  fontSize: '0.95rem',
+                  padding: '0.8rem 2rem',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  justifyContent: 'center',
+                  width: '100%',
+                  boxShadow: '0 0 15px rgba(0,158,227,0.3)'
+                }}
+              >
+                💳 Pagar con Mercado Pago
+              </button>
+            </div>
+          )}
 
           <p style={{ color: 'var(--off-white)', fontSize: '0.8rem', textAlign: 'center', marginTop: '1rem' }}>Comparte tu Ficha Táctica 📸</p>
         </div>

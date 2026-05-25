@@ -147,6 +147,158 @@ const Dashboard = ({ onLogout }) => {
   const [walkoutPlayer, setWalkoutPlayer] = useState(null);
   const [walkoutRevealStage, setWalkoutRevealStage] = useState(0);
 
+  const [mpAccessToken, setMpAccessToken] = useState('');
+  const [mpUserId, setMpUserId] = useState('');
+  const [showMpConfig, setShowMpConfig] = useState(false);
+
+  useEffect(() => {
+    if (isSupabaseConfigured && supabase && hostId) {
+      supabase.from('hosts').select('mercadopago_access_token, mercadopago_user_id').eq('id', hostId).single().then(({ data }) => {
+        if (data) {
+          setMpAccessToken(data.mercadopago_access_token || '');
+          setMpUserId(data.mercadopago_user_id || '');
+        }
+      });
+    }
+  }, [hostId]);
+
+  const saveMpConfig = async () => {
+    if (!isSupabaseConfigured || !supabase || !hostId) {
+      alert("Error: Supabase no está configurado o no has iniciado sesión.");
+      return;
+    }
+    
+    try {
+      let resolvedUserId = mpUserId;
+      if (mpAccessToken && mpAccessToken.trim() !== '' && (!mpUserId || mpUserId.trim() === '')) {
+        try {
+          const res = await fetch('https://api.mercadopago.com/v1/users/me', {
+            headers: { 'Authorization': `Bearer ${mpAccessToken}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.id) {
+              resolvedUserId = String(data.id);
+              setMpUserId(resolvedUserId);
+            }
+          }
+        } catch (e) {
+          console.error("No se pudo obtener el user_id automáticamente de Mercado Pago:", e);
+        }
+      }
+
+      const { error } = await supabase.from('hosts').update({
+        mercadopago_access_token: mpAccessToken,
+        mercadopago_user_id: resolvedUserId
+      }).eq('id', hostId);
+
+      if (error) {
+        throw error;
+      }
+
+      alert("¡Configuración de Mercado Pago guardada con éxito!");
+      setShowMpConfig(false);
+    } catch (e) {
+      console.error(e);
+      alert("Error al guardar en Supabase: " + e.message + "\nAsegúrate de haber corrido las migraciones SQL en la base de datos.");
+    }
+  };
+
+  const shareVaquitaWA = () => {
+    const quota = (pitchCost / (teamA.length + teamB.length)).toFixed(2);
+    const text = `💸 *LA VAQUITA - FULBO* 💸\n\nCosto de la cancha: *$${pitchCost}*\nNos toca pagar *$${quota}* a cada uno.\n\n👉 *PAGA FÁCIL DESDE TU CELULAR:* \nEntra a tu perfil en el link de la liga y pulsa el botón *"Pagar con Mercado Pago"*\n🔗 ${window.location.origin}/?league=${hostId}\n\n¡La acreditación y habilitación es automática en tiempo real! ⚡`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const renderMpConfigModal = () => {
+    if (!showMpConfig) return null;
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 10000, padding: '1rem',
+        animation: 'fadeIn 0.25s ease-out'
+      }}>
+        <div className="glass-panel" style={{
+          maxWidth: '500px', width: '100%',
+          padding: '2.5rem', border: '1px solid rgba(255, 255, 255, 0.1)',
+          position: 'relative'
+        }}>
+          <button 
+            onClick={() => setShowMpConfig(false)}
+            style={{
+              position: 'absolute', top: '1rem', right: '1.2rem',
+              background: 'transparent', border: 'none', color: 'var(--off-white)',
+              fontSize: '1.8rem', cursor: 'pointer', fontFamily: 'var(--font-secondary)'
+            }}
+          >
+            &times;
+          </button>
+          
+          <h2 className="glow-text-volt" style={{ fontSize: '2rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-primary)' }}>
+            ⚙️ CONFIGURACIÓN MP
+          </h2>
+          <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', lineHeight: '1.4', marginBottom: '1.5rem', fontFamily: 'var(--font-secondary)' }}>
+            Ingresa tu **Access Token** de Mercado Pago (Producción o Sandbox) para generar cobros reales con conciliación automática de deudas en "La Vaquita".
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <label style={{ color: 'var(--pure-white)', fontWeight: 'bold', fontSize: '0.8rem', letterSpacing: '1px', fontFamily: 'var(--font-primary)' }}>MERCADOPAGO ACCESS TOKEN</label>
+              <input 
+                type="password" 
+                value={mpAccessToken} 
+                onChange={(e) => setMpAccessToken(e.target.value)} 
+                placeholder="APP_USR-..." 
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  padding: '0.8rem',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontFamily: 'monospace',
+                  fontSize: '0.9rem'
+                }}
+              />
+              <span style={{ fontSize: '0.65rem', color: 'var(--off-white)', fontFamily: 'var(--font-secondary)' }}>
+                Consíguelo en tu panel de Mercado Pago Developers &gt; Credenciales.
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <label style={{ color: 'var(--pure-white)', fontWeight: 'bold', fontSize: '0.8rem', letterSpacing: '1px', fontFamily: 'var(--font-primary)' }}>MERCADOPAGO USER ID (OPCIONAL)</label>
+              <input 
+                type="text" 
+                value={mpUserId} 
+                onChange={(e) => setMpUserId(e.target.value)} 
+                placeholder="Ej: 123456789" 
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  padding: '0.8rem',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '0.9rem'
+                }}
+              />
+              <span style={{ fontSize: '0.65rem', color: 'var(--off-white)', fontFamily: 'var(--font-secondary)' }}>
+                Se detecta automáticamente al guardar el Access Token si se deja en blanco.
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button className="btn-primary" onClick={saveMpConfig} style={{ flex: 1 }}>GUARDAR</button>
+            <button onClick={() => setShowMpConfig(false)} style={{ ...btnSec, flex: 1, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)' }}>CANCELAR</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderPlayerDetailsModal = () => {
     if (!selectedPlayerDetails) return null;
     return (
@@ -1313,7 +1465,18 @@ const Dashboard = ({ onLogout }) => {
               {!isDrafting && (
               <div style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '1.5rem', marginTop: '2rem', marginBottom: '8rem', zIndex: 10, position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3 style={{ color: 'var(--ultimate-gold)', margin: 0 }}>💰 LA VAQUITA</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                    <h3 style={{ color: 'var(--ultimate-gold)', margin: 0 }}>💰 LA VAQUITA</h3>
+                    {hostId && (
+                      <button 
+                        onClick={() => setShowMpConfig(true)} 
+                        title="Configurar Mercado Pago" 
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', display: 'flex', alignItems: 'center' }}
+                      >
+                        ⚙️
+                      </button>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span style={{ color: 'var(--off-white)', fontSize: '0.9rem' }}>Costo Cancha ($):</span>
                     <input type="number" value={pitchCost} onChange={(e) => setPitchCost(e.target.value)} style={{ ...inputStyle, width: '100px', padding: '0.3rem' }} placeholder="0" />
@@ -1335,7 +1498,7 @@ const Dashboard = ({ onLogout }) => {
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`💸 *LA VAQUITA - FULBO*\nLa cancha cuesta $${pitchCost}. Nos toca $${(pitchCost / (teamA.length + teamB.length)).toFixed(2)} a cada uno.\n\n👉 *PAGAR AQUI:* https://link.mercadopago.com.ar/vaquita`)}`, '_blank')} className="btn-primary" style={{ background: '#009EE3', borderColor: '#009EE3', fontSize: '0.9rem', padding: '0.8rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', fontWeight: 'bold' }}>
+                      <button onClick={shareVaquitaWA} className="btn-primary" style={{ background: '#009EE3', borderColor: '#009EE3', fontSize: '0.9rem', padding: '0.8rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', fontWeight: 'bold' }}>
                          🤝 Cobrar por MercadoPago
                       </button>
                     </div>
@@ -1355,6 +1518,7 @@ const Dashboard = ({ onLogout }) => {
             </>
           )}
           {renderPlayerDetailsModal()}
+          {renderMpConfigModal()}
         </main>
       </div>
     </div>
