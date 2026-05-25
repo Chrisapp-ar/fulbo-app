@@ -205,7 +205,8 @@ const Dashboard = ({ onLogout }) => {
   };
 
   const shareVaquitaWA = () => {
-    const quota = (pitchCost / (teamA.length + teamB.length)).toFixed(2);
+    const totalPlayers = teamA.length + teamB.length;
+    const quota = totalPlayers > 0 ? (pitchCost / totalPlayers).toFixed(2) : '0.00';
     const text = `💸 *LA VAQUITA - FULBO* 💸\n\nCosto de la cancha: *$${pitchCost}*\nNos toca pagar *$${quota}* a cada uno.\n\n👉 *PAGA FÁCIL DESDE TU CELULAR:* \nEntra a tu perfil en el link de la liga y pulsa el botón *"Pagar con Mercado Pago"*\n🔗 ${window.location.origin}/?league=${hostId}\n\n¡La acreditación y habilitación es automática en tiempo real! ⚡`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
@@ -1119,6 +1120,15 @@ const Dashboard = ({ onLogout }) => {
     `}</style>
   );
 
+  // Limpiar duplicados por nombre
+  const uniqueRegistrationsMap = {};
+  eventRegistrations.forEach(r => {
+    if (r && r.name) {
+      uniqueRegistrationsMap[r.name.toLowerCase().trim()] = r;
+    }
+  });
+  const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
+
   return (
     <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', animation: 'fadeIn 0.5s ease-out' }}>
       {showPackOpening && (
@@ -1487,7 +1497,7 @@ const Dashboard = ({ onLogout }) => {
                   <div className="responsive-flex" style={{ display: 'flex', gap: '2rem' }}>
                     <div style={{ flex: 1 }}>
                       <p style={{ margin: '0 0 1rem 0', color: 'var(--electric-cyan)', fontWeight: 'bold' }}>
-                        Cuota: ${(pitchCost / (teamA.length + teamB.length)).toFixed(2)} por jugador
+                        Cuota: ${((teamA.length + teamB.length) > 0 ? (pitchCost / (teamA.length + teamB.length)) : 0).toFixed(2)} por jugador
                       </p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                         {[...teamA, ...teamB].map(p => (
