@@ -992,7 +992,7 @@ const Dashboard = ({ onLogout }) => {
 
   if (viewMode === 'history') {
     return (
-      <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto', animation: 'fadeIn 0.5s' }}>
+      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
         <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0 }}>HISTÓRICO</h1>
           <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>Registro de todos los partidos disputados</p>
@@ -1052,7 +1052,7 @@ const Dashboard = ({ onLogout }) => {
     });
 
     return (
-      <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto', animation: 'fadeIn 0.5s' }}>
+      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
         <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0 }}>LEADERBOARD MMR</h1>
           <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>Rango Competitivo Oficial (Glicko-2)</p>
@@ -1131,7 +1131,7 @@ const Dashboard = ({ onLogout }) => {
 
   if (viewMode === 'match') {
     return (
-      <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', animation: 'fadeIn 0.5s' }}>
+      <div className="page-container" style={{ animation: 'fadeIn 0.5s' }}>
         <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ display: 'inline-block', background: 'var(--crimson-red)', color: 'white', padding: '0.3rem 1rem', borderRadius: '20px', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>
             ● LIVE MATCH
@@ -1150,7 +1150,7 @@ const Dashboard = ({ onLogout }) => {
           </div>
         </div>
 
-        <div className="responsive-flex" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
+        <div className="scorers-grid">
           
           <div className="glass-panel">
             <h3 style={{ color: 'var(--volt-lime)', textAlign: 'center', marginBottom: '1.5rem' }}>Anotadores - Equipo A</h3>
@@ -1223,7 +1223,7 @@ const Dashboard = ({ onLogout }) => {
   const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', animation: 'fadeIn 0.5s ease-out' }}>
+    <div className="page-container" style={{ animation: 'fadeIn 0.5s ease-out' }}>
       {showPackOpening && (
         <div style={{
           position: 'fixed',
@@ -1396,7 +1396,7 @@ const Dashboard = ({ onLogout }) => {
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '-1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <img src="/logo.png" alt="FULBO Logo" style={{ width: '90px', height: '90px', objectFit: 'contain', filter: 'drop-shadow(0 0 15px rgba(204,255,0,0.5))' }} />
+            <img src="/logo.png" alt="FULBO Logo" className="logo-header" />
             <h1 className="glow-text-volt" style={{ fontSize: '4rem', margin: 0, fontStyle: 'italic', fontWeight: '900', letterSpacing: '2px' }}>FULBO</h1>
           </div>
           <span style={{ color: 'var(--electric-cyan)', fontSize: '0.9rem', letterSpacing: '5px', textTransform: 'uppercase', fontWeight: 'bold', marginTop: '0.5rem' }}>THE ELITE MATCHMAKING ENGINE</span>
@@ -1552,8 +1552,8 @@ const Dashboard = ({ onLogout }) => {
                 <div style={{ width: '60px', height: '2px', background: isDrafting ? 'var(--crimson-red)' : 'var(--volt-lime)', margin: '0.5rem auto', boxShadow: isDrafting ? '0 0 10px var(--crimson-red)' : '0 0 10px var(--volt-lime)' }}></div>
               </div>
               
-              <div className="responsive-flex" style={{ display: 'flex', flex: 1, position: 'relative' }}>
-                <div style={{ flex: 1, borderRight: '1px solid rgba(255,255,255,0.05)', paddingRight: '1rem', paddingBottom: '5rem' }}>
+              <div className="responsive-flex" style={{ display: 'flex', flex: 1, position: 'relative', alignItems: 'center' }}>
+                <div className="team-column-a">
                   <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                     <h3 className="glow-text-volt" style={{ fontSize: '2rem' }}>EQUIPO A</h3>
                     <div style={{ background: 'rgba(204,255,0,0.05)', display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '30px', border: '1px solid rgba(204,255,0,0.2)', marginTop: '0.5rem' }}>
@@ -1570,11 +1570,11 @@ const Dashboard = ({ onLogout }) => {
                   </div>
                 </div>
 
-                <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)', width: '70px', height: '70px', background: 'var(--pitch-black)', border: '2px solid rgba(255,255,255,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, boxShadow: '0 0 30px rgba(0,0,0,1)' }}>
+                <div style={{ width: '70px', height: '70px', background: 'var(--pitch-black)', border: '2px solid rgba(255,255,255,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, boxShadow: '0 0 30px rgba(0,0,0,1)', flexShrink: 0 }}>
                   <span style={{ fontFamily: 'var(--font-primary)', fontWeight: '900', fontSize: '1.5rem', color: 'var(--pure-white)', textShadow: '0 0 10px rgba(255,255,255,0.5)' }}>VS</span>
                 </div>
 
-                <div style={{ flex: 1, paddingLeft: '1rem', paddingBottom: '5rem' }}>
+                <div className="team-column-b">
                   <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                     <h3 className="glow-text-cyan" style={{ fontSize: '2rem' }}>EQUIPO B</h3>
                     <div style={{ background: 'rgba(0,240,255,0.05)', display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '30px', border: '1px solid rgba(0,240,255,0.2)', marginTop: '0.5rem' }}>
@@ -1594,7 +1594,7 @@ const Dashboard = ({ onLogout }) => {
 
               {/* LA VAQUITA PANEL */}
               {!isDrafting && (
-              <div style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '1.5rem', marginTop: '2rem', marginBottom: '8rem', zIndex: 10, position: 'relative' }}>
+              <div style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '1.5rem', marginTop: '2rem', zIndex: 10, position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                     <h3 style={{ color: 'var(--ultimate-gold)', margin: 0 }}>💰 LA VAQUITA</h3>
@@ -1640,10 +1640,10 @@ const Dashboard = ({ onLogout }) => {
 
               {/* ACTION: START MATCH & SHARE */}
               {!isDrafting && (
-              <div className="responsive-flex" style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', width: '100%', display: 'flex', justifyContent: 'center', gap: '1rem', zIndex: 20 }}>
-                <button onClick={shareTeamsWA} className="btn-primary" style={{ background: '#25D366', color: 'white', borderColor: '#25D366', boxShadow: '0 0 10px rgba(37,211,102,0.3)', flex: 1, maxWidth: '250px' }}>WHATSAPP 📱</button>
-                <button onClick={startMatch} className="btn-primary" style={{ background: 'var(--pitch-black)', color: 'var(--ultimate-gold)', borderColor: 'var(--ultimate-gold)', boxShadow: '0 0 20px rgba(255,215,0,0.2)', flex: 1, maxWidth: '250px' }}>INICIAR PARTIDO ⚡</button>
-                <button onClick={() => { setTeamA([]); setTeamB([]); setPitchCost(''); setPaymentsMap({}); setIsDrafting(false); }} style={{ ...btnSec, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)', flex: 1, maxWidth: '200px' }}>CANCELAR</button>
+              <div className="match-action-buttons">
+                <button onClick={shareTeamsWA} className="btn-primary" style={{ background: '#25D366', color: 'white', borderColor: '#25D366', boxShadow: '0 0 10px rgba(37,211,102,0.3)' }}>WHATSAPP 📱</button>
+                <button onClick={startMatch} className="btn-primary" style={{ background: 'var(--pitch-black)', color: 'var(--ultimate-gold)', borderColor: 'var(--ultimate-gold)', boxShadow: '0 0 20px rgba(255,215,0,0.2)' }}>INICIAR PARTIDO ⚡</button>
+                <button onClick={() => { setTeamA([]); setTeamB([]); setPitchCost(''); setPaymentsMap({}); setIsDrafting(false); }} style={{ ...btnSec, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)' }}>CANCELAR</button>
               </div>
               )}
             </>

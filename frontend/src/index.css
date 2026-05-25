@@ -147,3 +147,106 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-primary); text-transform: upper
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
+.page-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 0.5rem;
+  }
+}
+
+/* Responsiveness for Headings */
+@media (max-width: 768px) {
+  h1 { font-size: 2.2rem !important; }
+  h2 { font-size: 1.8rem !important; }
+  h3 { font-size: 1.4rem !important; }
+}
+
+/* Logo scale */
+.logo-header {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 15px rgba(204,255,0,0.5));
+}
+
+@media (max-width: 768px) {
+  .logo-header {
+    width: 60px !important;
+    height: 60px !important;
+  }
+}
+
+/* Team Columns in Matchmaking Preview */
+.team-column-a {
+  flex: 1;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  padding-right: 1rem;
+}
+
+.team-column-b {
+  flex: 1;
+  padding-left: 1rem;
+}
+
+@media (max-width: 768px) {
+  .team-column-a {
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-right: 0 !important;
+    padding-bottom: 1.5rem !important;
+    margin-bottom: 1.5rem;
+  }
+  .team-column-b {
+    padding-left: 0 !important;
+    padding-top: 1.5rem !important;
+  }
+}
+
+/* Match Action Buttons Container */
+.match-action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 3rem;
+}
+
+.match-action-buttons button {
+  flex: 1;
+  max-width: 250px;
+}
+
+@media (max-width: 768px) {
+  .match-action-buttons {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.8rem !important;
+    margin-top: 2rem !important;
+  }
+  .match-action-buttons button {
+    max-width: 100% !important;
+  }
+}
+
+/* Scorers Live Match Grid */
+.scorers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+}
+
+@media (max-width: 768px) {
+  .scorers-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+}
+
+
