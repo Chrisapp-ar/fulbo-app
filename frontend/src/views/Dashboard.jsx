@@ -48,12 +48,28 @@ const getPlayerBadges = (p) => {
 const Dashboard = ({ onLogout }) => {
   const [roster, setRoster] = useState(() => {
     const saved = localStorage.getItem('fulbo_roster');
-    return saved ? JSON.parse(saved) : DEFAULT_ROSTER;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error("Failed to parse roster from localStorage:", e);
+      }
+    }
+    return DEFAULT_ROSTER;
   });
 
   const [matchHistory, setMatchHistory] = useState(() => {
     const saved = localStorage.getItem('fulbo_match_history');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error("Failed to parse matchHistory from localStorage:", e);
+      }
+    }
+    return [];
   });
 
   useEffect(() => {
@@ -81,8 +97,8 @@ const Dashboard = ({ onLogout }) => {
          if (!user) return;
          const { data, error } = await supabase.from('league_state').select('*').eq('host_id', user.id).single();
          if (data) {
-            if (data.roster && data.roster.length > 0) setRoster(data.roster);
-            if (data.match_history && data.match_history.length > 0) setMatchHistory(data.match_history);
+            if (Array.isArray(data.roster) && data.roster.length > 0) setRoster(data.roster);
+            if (Array.isArray(data.match_history) && data.match_history.length > 0) setMatchHistory(data.match_history);
             if (data.active_event) setActiveEvent(data.active_event);
          }
       };
@@ -101,8 +117,8 @@ const Dashboard = ({ onLogout }) => {
         let pe = 0;
         let pp = 0;
         matchHistory.forEach(match => {
-          const inA = match.teamA?.some(m => m.id === p.id || m.name.toLowerCase() === p.name.toLowerCase());
-          const inB = match.teamB?.some(m => m.id === p.id || m.name.toLowerCase() === p.name.toLowerCase());
+          const inA = match.teamA?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
+          const inB = match.teamB?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
           if (inA || inB) {
             if (match.winner === 'Draw') {
               pe++;
@@ -562,14 +578,21 @@ const Dashboard = ({ onLogout }) => {
     setRoster(roster.map(p => p.id === id ? { ...p, condition: { stamina: 100 } } : p));
   };
 
-  const calcRawOvr = (stats) => Math.round((stats.pac + stats.sho + stats.pas + stats.dri + stats.def + stats.phy) / 6);
+  const calcRawOvr = (stats) => {
+    if (!stats) return 75;
+    return Math.round(((stats.pac || 75) + (stats.sho || 75) + (stats.pas || 75) + (stats.dri || 75) + (stats.def || 75) + (stats.phy || 75)) / 6);
+  };
   const calcOvr = (p) => {
+    if (!p) return 75;
     const raw = calcRawOvr(p.stats);
     const stam = p.condition?.stamina ?? 100;
     // Opción B: Penalización global multiplicativa. (100% de stamina = 100% OVR, 0% stamina = 50% OVR)
     return Math.round(raw * (0.5 + (0.5 * (stam / 100))));
   };
-  const calcHybridScore = (p) => (calcOvr(p) + ((p.glicko?.rating || 1500) / 20)) / 2;
+  const calcHybridScore = (p) => {
+    if (!p) return 75;
+    return (calcOvr(p) + ((p.glicko?.rating || 1500) / 20)) / 2;
+  };
 
   const balanceTeamsLocally = (useLobby = false) => {
     setIsLoading(true);
@@ -578,11 +601,11 @@ const Dashboard = ({ onLogout }) => {
       if (useLobby) {
         // Limpiar duplicados
         const uniqueMap = {};
-        eventRegistrations.forEach(r => { uniqueMap[r.name.toLowerCase().trim()] = r; });
+        eventRegistrations.forEach(r => { if (r && r.name) { uniqueMap[r.name.toLowerCase().trim()] = r; } });
         const finalRegs = Object.values(uniqueMap).slice(0, activeEvent?.format || 100);
 
         pool = finalRegs.map(reg => {
-          const existingPlayer = roster.find(p => p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
+          const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
           return {
             id: existingPlayer ? existingPlayer.id : reg.id,
             name: reg.name,
@@ -727,7 +750,7 @@ const Dashboard = ({ onLogout }) => {
     });
 
     [...teamA, ...teamB].forEach(matchPlayer => {
-       const existingIndex = updatedRoster.findIndex(p => p.id === matchPlayer.id || p.name.toLowerCase() === matchPlayer.name.toLowerCase());
+       const existingIndex = updatedRoster.findIndex(p => p.id === matchPlayer.id || (p.name && matchPlayer.name && p.name.toLowerCase() === matchPlayer.name.toLowerCase()));
        
        const inA = teamA.some(a => a.id === matchPlayer.id);
        const inB = teamB.some(b => b.id === matchPlayer.id);

@@ -95,8 +95,8 @@ const CompanionApp = ({ leagueId }) => {
               let pe = 0;
               let pp = 0;
               matches.forEach(match => {
-                const inA = match.teamA?.some(m => m.id === p.id || m.name.toLowerCase() === p.name.toLowerCase());
-                const inB = match.teamB?.some(m => m.id === p.id || m.name.toLowerCase() === p.name.toLowerCase());
+                const inA = match.teamA?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
+                const inB = match.teamB?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
                 if (inA || inB) {
                   if (match.winner === 'Draw') {
                     pe++;
