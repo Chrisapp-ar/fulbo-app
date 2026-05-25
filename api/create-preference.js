@@ -28,6 +28,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing parameters: hostId, playerId, and amount are required' });
   }
 
+  const parsedAmount = parseFloat(amount);
+  if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    return res.status(400).json({ error: 'Invalid amount: must be a positive number' });
+  }
+
   try {
     let accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
@@ -56,7 +61,7 @@ export default async function handler(req, res) {
           {
             title: title || 'Cuota de Cancha FULBO',
             quantity: 1,
-            unit_price: parseFloat(amount),
+            unit_price: parsedAmount,
             currency_id: 'ARS'
           }
         ],

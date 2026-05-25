@@ -75,7 +75,7 @@ export default async function handler(req, res) {
           .eq('host_id', hostId)
           .single();
 
-        if (leagueState && leagueState.roster) {
+        if (leagueState && Array.isArray(leagueState.roster)) {
           const updatedRoster = leagueState.roster.map(player => {
             if (player.id === playerId || (player.id && player.id.toString() === playerId.toString())) {
               return {
@@ -92,11 +92,11 @@ export default async function handler(req, res) {
 
           const { error: updateError } = await supabase
             .from('league_state')
-            .upsert({
-              host_id: hostId,
+            .update({
               roster: updatedRoster,
               updated_at: new Date().toISOString()
-            });
+            })
+            .eq('host_id', hostId);
 
           if (updateError) {
             console.error('Failed to update league state roster:', updateError);
@@ -106,8 +106,8 @@ export default async function handler(req, res) {
           console.log(`Successfully reconciled payment. Player ${playerId} debt set to 0.`);
           return res.status(200).json({ status: 'reconciled', playerId });
         } else {
-          console.error(`League state not found for host: ${hostId}`);
-          return res.status(404).json({ error: 'League state not found' });
+          console.error(`League state or roster array not found for host: ${hostId}`);
+          return res.status(404).json({ error: 'League state or roster not found' });
         }
       }
     }

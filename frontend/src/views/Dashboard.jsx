@@ -76,7 +76,7 @@ const Dashboard = ({ onLogout }) => {
     localStorage.setItem('fulbo_roster', JSON.stringify(roster));
     if (isSupabaseConfigured && supabase) {
        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) supabase.from('league_state').upsert({ host_id: user.id, roster, updated_at: new Date().toISOString() }).then();
+          if (user) supabase.from('league_state').update({ roster, updated_at: new Date().toISOString() }).eq('host_id', user.id).then();
        });
     }
   }, [roster]);
@@ -85,7 +85,7 @@ const Dashboard = ({ onLogout }) => {
     localStorage.setItem('fulbo_match_history', JSON.stringify(matchHistory));
     if (isSupabaseConfigured && supabase) {
        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) supabase.from('league_state').upsert({ host_id: user.id, match_history: matchHistory, updated_at: new Date().toISOString() }).then();
+          if (user) supabase.from('league_state').update({ match_history: matchHistory, updated_at: new Date().toISOString() }).eq('host_id', user.id).then();
        });
     }
   }, [matchHistory]);
@@ -95,11 +95,20 @@ const Dashboard = ({ onLogout }) => {
       const loadCloudState = async () => {
          const { data: { user } } = await supabase.auth.getUser();
          if (!user) return;
-         const { data, error } = await supabase.from('league_state').select('*').eq('host_id', user.id).single();
+         const { data, error } = await supabase.from('league_state').select('*').eq('host_id', user.id).maybeSingle();
          if (data) {
             if (Array.isArray(data.roster) && data.roster.length > 0) setRoster(data.roster);
             if (Array.isArray(data.match_history) && data.match_history.length > 0) setMatchHistory(data.match_history);
             if (data.active_event) setActiveEvent(data.active_event);
+         } else {
+            // Inicialización segura si no existe la fila
+            await supabase.from('league_state').insert({
+               host_id: user.id,
+               roster: roster,
+               match_history: matchHistory,
+               active_event: null,
+               updated_at: new Date().toISOString()
+            });
          }
       };
       loadCloudState();
@@ -203,7 +212,11 @@ const Dashboard = ({ onLogout }) => {
         }
       }
 
+      const { data: { user } } = await supabase.auth.getUser();
+      const email = user?.email || 'host@demo.com';
+
       const { error } = await supabase.from('hosts').update({
+        email: email,
         mercadopago_access_token: mpAccessToken,
         mercadopago_user_id: resolvedUserId
       }).eq('id', hostId);
@@ -498,17 +511,40 @@ const Dashboard = ({ onLogout }) => {
 
   useEffect(() => {
     if (isSupabaseConfigured && supabase && hostId) {
-       supabase.from('league_state').upsert({ host_id: hostId, active_event: activeEvent, updated_at: new Date().toISOString() }).then();
+       supabase.from('league_state').update({ active_event: activeEvent, updated_at: new Date().toISOString() }).eq('host_id', hostId).then();
     }
   }, [activeEvent, hostId]);
 
   useEffect(() => {
     if (!activeEvent || !isSupabaseConfigured || !supabase || !hostId) return;
-    const interval = setInterval(async () => {
+
+    // Obtener registros iniciales
+    const fetchRegistrations = async () => {
       const { data } = await supabase.from('event_registrations').select('*').eq('host_id', hostId);
       if (data) setEventRegistrations(data);
-    }, 3000);
-    return () => clearInterval(interval);
+    };
+    fetchRegistrations();
+
+    // Suscribirse a cambios en tiempo real
+    const channel = supabase
+      .channel('lobby-registrations')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_registrations',
+          filter: `host_id=eq.${hostId}`
+        },
+        () => {
+          fetchRegistrations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [activeEvent, hostId]);
 
   const copyLeagueLink = () => {
@@ -629,17 +665,51 @@ const Dashboard = ({ onLogout }) => {
          if (r === 'Capitán') return 'Mediocampo';
          return r;
       };
+      const tA = [];
+      const tB = [];
+      let sumA = 0;
+      let sumB = 0;
       
-      const tA = []; const tB = [];
-      let sumA = 0; let sumB = 0;
-      const roles = ['Arquero', 'Defensor', 'Mediocampo', 'Delantero'];
+      const activePool = pool.filter(p => p && !p.financial?.isBanned);
       
-      roles.forEach(r => {
-        const activePool = pool.filter(p => !p.financial?.isBanned);
-        const playersOfRole = activePool.filter(p => mapRole(p.role) === r).sort((a, b) => calcHybridScore(b) - calcHybridScore(a));
-        playersOfRole.forEach(p => {
-          if (sumA <= sumB) { tA.push(p); sumA += calcHybridScore(p); } 
-          else { tB.push(p); sumB += calcHybridScore(p); }
+      const grouped = {
+        Arquero: [],
+        Defensor: [],
+        Mediocampo: [],
+        Delantero: []
+      };
+      
+      activePool.forEach(p => {
+        const r = mapRole(p.role);
+        if (grouped[r]) grouped[r].push(p);
+        else grouped.Mediocampo.push(p);
+      });
+      
+      Object.keys(grouped).forEach(r => {
+        grouped[r].sort((a, b) => calcHybridScore(b) - calcHybridScore(a));
+      });
+      
+      const rolesOrder = ['Arquero', 'Defensor', 'Mediocampo', 'Delantero'];
+      
+      rolesOrder.forEach(r => {
+        const players = grouped[r];
+        players.forEach(p => {
+          const diffSize = tA.length - tB.length;
+          if (diffSize === 0) {
+            if (sumA <= sumB) {
+              tA.push(p);
+              sumA += calcHybridScore(p);
+            } else {
+              tB.push(p);
+              sumB += calcHybridScore(p);
+            }
+          } else if (diffSize < 0) {
+            tA.push(p);
+            sumA += calcHybridScore(p);
+          } else {
+            tB.push(p);
+            sumB += calcHybridScore(p);
+          }
         });
       });
 

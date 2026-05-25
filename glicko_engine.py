@@ -52,7 +52,15 @@ class Glicko2Engine:
 
         # Distribuir anclas equitativamente
         for p in anclas:
-            if mu_a <= mu_b:
+            diff_size = len(team_a) - len(team_b)
+            if diff_size == 0:
+                if mu_a <= mu_b:
+                    team_a.append(p)
+                    mu_a += p.get('mu', 1500)
+                else:
+                    team_b.append(p)
+                    mu_b += p.get('mu', 1500)
+            elif diff_size < 0:
                 team_a.append(p)
                 mu_a += p.get('mu', 1500)
             else:
@@ -61,7 +69,15 @@ class Glicko2Engine:
 
         # Distribuir los demas jugadores
         for p in otros:
-            if mu_a <= mu_b:
+            diff_size = len(team_a) - len(team_b)
+            if diff_size == 0:
+                if mu_a <= mu_b:
+                    team_a.append(p)
+                    mu_a += p.get('mu', 1500)
+                else:
+                    team_b.append(p)
+                    mu_b += p.get('mu', 1500)
+            elif diff_size < 0:
                 team_a.append(p)
                 mu_a += p.get('mu', 1500)
             else:

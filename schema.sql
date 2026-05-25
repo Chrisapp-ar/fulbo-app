@@ -22,12 +22,14 @@ CREATE TABLE hosts (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email VARCHAR(255) UNIQUE NOT NULL,
     organization_name VARCHAR(100),
+    mercadopago_access_token TEXT,
+    mercadopago_user_id VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Habilitar Row Level Security para que un Host no vea datos de otro
 ALTER TABLE hosts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Hosts can read own data" ON hosts FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Hosts can manage their own data" ON hosts FOR ALL USING (auth.uid() = id);
 
 -- ==========================================
 -- 2. PLAYERS (Roster Comunitario)
@@ -113,3 +115,24 @@ CREATE POLICY "Public can insert event registrations" ON event_registrations
     FOR INSERT WITH CHECK (true);
 CREATE POLICY "Hosts can fully manage their event registrations" ON event_registrations
     FOR ALL USING (auth.uid() = host_id);
+
+-- ==========================================
+-- 7. AUTH TRIGGER (Auto-registro de Hosts)
+-- ==========================================
+-- Crea automáticamente el registro en la tabla pública public.hosts cuando un usuario se registra en auth.users
+CREATE OR REPLACE FUNCTION public.handle_new_host()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.hosts (id, email)
+    VALUES (new.id, new.email);
+    
+    INSERT INTO public.league_state (host_id, roster, match_history)
+    VALUES (new.id, '[]'::jsonb, '[]'::jsonb);
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_host();

@@ -39,20 +39,28 @@ const CompanionApp = ({ leagueId }) => {
   const [regRole, setRegRole] = useState('Mediocampo');
   const [regStats, setRegStats] = useState({ pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
   const [regSuccess, setRegSuccess] = useState(false);
+  const [leagueExists, setLeagueExists] = useState(false);
+  const [regAvatar, setRegAvatar] = useState('👤');
+  const [paymentSuccessMsg, setPaymentSuccessMsg] = useState(false);
   
   const handleRegSubmit = async (e) => {
     e.preventDefault();
     if (!regName.trim()) return;
     
     if (isSupabaseConfigured && supabase) {
-      await supabase.from('event_registrations').insert({
+      const { error } = await supabase.from('event_registrations').insert({
         host_id: leagueId,
-        name: regName,
+        name: regName.trim(),
         role: regRole,
-        stats: regStats
+        stats: regStats,
+        avatar: regAvatar
       });
-      setRegSuccess(true);
-      setIsRegistering(false);
+      if (error) {
+        alert("Error al inscribirse: " + error.message);
+      } else {
+        setRegSuccess(true);
+        setIsRegistering(false);
+      }
     }
   };
 
@@ -81,58 +89,107 @@ const CompanionApp = ({ leagueId }) => {
     }
   };
 
+  // Detectar redirección de pago exitoso
   useEffect(() => {
-    if (isSupabaseConfigured && supabase) {
-      const fetchLeague = async () => {
-        const { data, error } = await supabase.from('league_state').select('*').eq('host_id', leagueId).single();
-        if (data) {
-          if (data.roster) {
-            const matches = data.match_history || [];
-            const migratedRoster = data.roster.map(p => {
-              if (!p.history) return p;
-              if (p.history.pe !== undefined && p.history.pp !== undefined) return p;
-              
-              let pe = 0;
-              let pp = 0;
-              matches.forEach(match => {
-                const inA = match.teamA?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
-                const inB = match.teamB?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
-                if (inA || inB) {
-                  if (match.winner === 'Draw') {
-                    pe++;
-                  } else if ((inA && match.winner === 'A') || (inB && match.winner === 'B')) {
-                    // Win
-                  } else {
-                    pp++;
-                  }
-                }
-              });
-              
-              const pj = p.history.pj || 0;
-              const pg = p.history.pg || 0;
-              const diff = pj - pg;
-              if (pe + pp !== diff) {
-                if (pe > diff) {
-                  pe = diff;
-                  pp = 0;
-                } else {
-                  pp = diff - pe;
-                }
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('status') || params.get('collection_status');
+    if (paymentStatus === 'approved') {
+      setPaymentSuccessMsg(true);
+      // Limpiar parámetros de la URL
+      const newUrl = window.location.pathname + `?league=${leagueId}`;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, [leagueId]);
+
+  const processLeagueData = (data) => {
+    if (data) {
+      setLeagueExists(true);
+      if (Array.isArray(data.roster)) {
+        const matches = data.match_history || [];
+        const migratedRoster = data.roster.map(p => {
+          if (!p.history) return p;
+          if (p.history.pe !== undefined && p.history.pp !== undefined) return p;
+          
+          let pe = 0;
+          let pp = 0;
+          matches.forEach(match => {
+            const inA = match.teamA?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
+            const inB = match.teamB?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
+            if (inA || inB) {
+              if (match.winner === 'Draw') {
+                pe++;
+              } else if ((inA && match.winner === 'A') || (inB && match.winner === 'B')) {
+                // Win
+              } else {
+                pp++;
               }
-              
-              return {
-                ...p,
-                history: { ...p.history, pe, pp }
-              };
-            });
-            const sorted = [...migratedRoster].sort((a, b) => (b.glicko?.rating || 1500) - (a.glicko?.rating || 1500));
-            setRoster(sorted);
+            }
+          });
+          
+          const pj = p.history.pj || 0;
+          const pg = p.history.pg || 0;
+          const diff = pj - pg;
+          if (pe + pp !== diff) {
+            if (pe > diff) {
+              pe = diff;
+              pp = 0;
+            } else {
+              pp = diff - pe;
+            }
           }
-          if (data.active_event) setActiveEvent(data.active_event);
-        }
+          
+          return {
+            ...p,
+            history: { ...p.history, pe, pp }
+          };
+        });
+        const sorted = [...migratedRoster].sort((a, b) => (b.glicko?.rating || 1500) - (a.glicko?.rating || 1500));
+        setRoster(sorted);
+      } else {
+        setRoster([]);
+      }
+      if (data.active_event) {
+        setActiveEvent(data.active_event);
+      } else {
+        setActiveEvent(null);
+      }
+    } else {
+      setLeagueExists(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isSupabaseConfigured && supabase && leagueId) {
+      const fetchLeague = async () => {
+        const { data, error } = await supabase.from('league_state').select('*').eq('host_id', leagueId).maybeSingle();
+        processLeagueData(data);
         setLoading(false);
       };
+      
       fetchLeague();
+
+      // Suscribirse a cambios en tiempo real en league_state
+      const channel = supabase
+        .channel(`league_state_${leagueId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'league_state',
+            filter: `host_id=eq.${leagueId}`
+          },
+          (payload) => {
+            if (payload.new) {
+              processLeagueData(payload.new);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     } else {
       setLoading(false);
     }
@@ -142,8 +199,8 @@ const CompanionApp = ({ leagueId }) => {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--volt-lime)', fontSize: '1.5rem', background: 'var(--pitch-black)' }}>Cargando Liga...</div>;
   }
 
-  if (roster.length === 0) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center' }}>No se pudo cargar la liga. Verifica que el enlace sea correcto.</div>;
+  if (!leagueExists) {
+    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>No se pudo encontrar la liga. Verifica que el enlace sea correcto.</div>;
   }
 
   if (selectedPlayer) {
@@ -278,6 +335,37 @@ const CompanionApp = ({ leagueId }) => {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '2rem 1rem', fontFamily: 'var(--font-secondary)' }}>
+      {paymentSuccessMsg && (
+        <div style={{
+          background: 'rgba(37,211,102,0.1)',
+          border: '2px solid #25D366',
+          color: '#25D366',
+          padding: '1.5rem',
+          borderRadius: '12px',
+          marginBottom: '2rem',
+          textAlign: 'center',
+          animation: 'fadeIn 0.5s ease-out'
+        }}>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>¡PAGO APROBADO! 🎉</h3>
+          <p style={{ margin: 0, fontSize: '0.9rem' }}>Tu pago ha sido registrado con éxito. El estado de tu deuda se actualizará en unos instantes.</p>
+          <button 
+            onClick={() => setPaymentSuccessMsg(false)} 
+            style={{ 
+              background: '#25D366', 
+              color: 'black', 
+              border: 'none', 
+              padding: '0.4rem 1.2rem', 
+              borderRadius: '20px', 
+              marginTop: '0.8rem', 
+              fontWeight: 'bold', 
+              cursor: 'pointer' 
+            }}
+          >
+            Entendido
+          </button>
+        </div>
+      )}
+
       <header style={{ marginBottom: '2rem', textAlign: 'center' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
@@ -321,6 +409,35 @@ const CompanionApp = ({ leagueId }) => {
               <option value="Mediocampo">Mediocampo</option>
               <option value="Delantero">Delantero</option>
             </select>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ color: 'var(--off-white)', fontSize: '0.8rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>SELECCIONA TU AVATAR EMOJI</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.8rem', borderRadius: '8px' }}>
+                {['👤', '⚽', '🏃‍♂️', '🔥', '🌟', '🧤', '🛡️', '🎯', '⚡', '🏆', '👽', '🦁', '💀', '🤖'].map(emoji => (
+                  <button 
+                    key={emoji}
+                    type="button"
+                    onClick={() => setRegAvatar(emoji)}
+                    style={{
+                      background: regAvatar === emoji ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '1.5rem',
+                      width: '40px',
+                      height: '40px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'transform 0.1s ease, background 0.2s ease',
+                      transform: regAvatar === emoji ? 'scale(1.15)' : 'none'
+                    }}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
             
             <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
               <h4 style={{ color: 'var(--pure-white)', marginTop: 0, textAlign: 'center', marginBottom: '1rem' }}>ATRIBUTOS TÁCTICOS</h4>
@@ -344,34 +461,42 @@ const CompanionApp = ({ leagueId }) => {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxWidth: '600px', margin: '0 auto' }}>
-        {roster.map((p, i) => {
-          const pj = p.history?.pj || 0;
-          const pg = p.history?.pg || 0;
-          const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
-          const mmr = Math.round(p.glicko?.rating || 1500);
-          
-          return (
-            <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span style={{ color: i < 3 ? 'var(--ultimate-gold)' : 'var(--off-white)', fontWeight: 'bold', fontSize: '1.2rem', width: '20px' }}>{i + 1}</span>
-                <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
-                </div>
-                <div>
-                  <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{p.name}</div>
-                  <div style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>
-                    {p.role} | {pj} PJ ({pg}G / {p.history?.pe || 0}E / {p.history?.pp || 0}P)
+        {roster.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚽</div>
+            <p style={{ margin: 0, fontSize: '0.9rem' }}>Aún no hay jugadores registrados en esta liga.</p>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--electric-cyan)', fontWeight: 'bold' }}>Inscríbete arriba si hay un partido programado.</p>
+          </div>
+        ) : (
+          roster.map((p, i) => {
+            const pj = p.history?.pj || 0;
+            const pg = p.history?.pg || 0;
+            const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
+            const mmr = Math.round(p.glicko?.rating || 1500);
+            
+            return (
+              <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ color: i < 3 ? 'var(--ultimate-gold)' : 'var(--off-white)', fontWeight: 'bold', fontSize: '1.2rem', width: '20px' }}>{i + 1}</span>
+                  <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
+                  </div>
+                  <div>
+                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{p.name}</div>
+                    <div style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>
+                      {p.role} | {pj} PJ ({pg}G / {p.history?.pe || 0}E / {p.history?.pp || 0}P)
+                    </div>
                   </div>
                 </div>
+                
+                <div style={{ textAlign: 'right' }}>
+                  <div className="glow-text-volt" style={{ fontSize: '1.3rem', fontWeight: '900' }}>{mmr}</div>
+                  <div style={{ color: 'var(--electric-cyan)', fontSize: '0.75rem', fontWeight: 'bold' }}>{winRate}% WR</div>
+                </div>
               </div>
-              
-              <div style={{ textAlign: 'right' }}>
-                <div className="glow-text-volt" style={{ fontSize: '1.3rem', fontWeight: '900' }}>{mmr}</div>
-                <div style={{ color: 'var(--electric-cyan)', fontSize: '0.75rem', fontWeight: 'bold' }}>{winRate}% WR</div>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </div>
   );
