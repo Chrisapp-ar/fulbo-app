@@ -62,7 +62,45 @@ const CompanionApp = ({ leagueId }) => {
         const { data, error } = await supabase.from('league_state').select('*').eq('host_id', leagueId).single();
         if (data) {
           if (data.roster) {
-            const sorted = [...data.roster].sort((a, b) => (b.glicko?.rating || 1500) - (a.glicko?.rating || 1500));
+            const matches = data.match_history || [];
+            const migratedRoster = data.roster.map(p => {
+              if (!p.history) return p;
+              if (p.history.pe !== undefined && p.history.pp !== undefined) return p;
+              
+              let pe = 0;
+              let pp = 0;
+              matches.forEach(match => {
+                const inA = match.teamA?.some(m => m.id === p.id || m.name.toLowerCase() === p.name.toLowerCase());
+                const inB = match.teamB?.some(m => m.id === p.id || m.name.toLowerCase() === p.name.toLowerCase());
+                if (inA || inB) {
+                  if (match.winner === 'Draw') {
+                    pe++;
+                  } else if ((inA && match.winner === 'A') || (inB && match.winner === 'B')) {
+                    // Win
+                  } else {
+                    pp++;
+                  }
+                }
+              });
+              
+              const pj = p.history.pj || 0;
+              const pg = p.history.pg || 0;
+              const diff = pj - pg;
+              if (pe + pp !== diff) {
+                if (pe > diff) {
+                  pe = diff;
+                  pp = 0;
+                } else {
+                  pp = diff - pe;
+                }
+              }
+              
+              return {
+                ...p,
+                history: { ...p.history, pe, pp }
+              };
+            });
+            const sorted = [...migratedRoster].sort((a, b) => (b.glicko?.rating || 1500) - (a.glicko?.rating || 1500));
             setRoster(sorted);
           }
           if (data.active_event) setActiveEvent(data.active_event);
@@ -137,12 +175,33 @@ const CompanionApp = ({ leagueId }) => {
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%' }}>
             <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ color: 'var(--off-white)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Partidos</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>{selectedPlayer.history?.pj || 0}</div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
               <div style={{ color: 'var(--off-white)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rango Competitivo</div>
               <div className="glow-text-volt" style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.2rem' }}>{Math.round(selectedPlayer.glicko?.rating || 1500)} MMR</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--off-white)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rendimiento (Win Rate)</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--electric-cyan)' }}>
+                {selectedPlayer.history?.pj > 0 ? Math.round(((selectedPlayer.history?.pg || 0) / selectedPlayer.history.pj) * 100) : 0}%
+              </div>
+            </div>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', width: '100%' }}>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--off-white)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PJ</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>{selectedPlayer.history?.pj || 0}</div>
+            </div>
+            <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--volt-lime)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PG</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--volt-lime)' }}>{selectedPlayer.history?.pg || 0}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--off-white)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PE</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>{selectedPlayer.history?.pe || 0}</div>
+            </div>
+            <div style={{ background: 'rgba(255,59,48,0.02)', border: '1px solid rgba(255,59,48,0.1)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--crimson-red)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PP</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--crimson-red)' }}>{selectedPlayer.history?.pp || 0}</div>
             </div>
           </div>
 
@@ -235,7 +294,9 @@ const CompanionApp = ({ leagueId }) => {
                 </div>
                 <div>
                   <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{p.name}</div>
-                  <div style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>{p.role} | {pj} Partidos</div>
+                  <div style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>
+                    {p.role} | {pj} PJ ({pg}G / {p.history?.pe || 0}E / {p.history?.pp || 0}P)
+                  </div>
                 </div>
               </div>
               

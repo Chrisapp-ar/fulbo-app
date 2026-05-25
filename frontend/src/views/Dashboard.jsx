@@ -10,7 +10,7 @@ const DEFAULT_ROSTER = [
   { id: '2', name: 'Mascherano', role: 'Defensor', avatar: '🛡️', stats: { pac: 75, sho: 60, pas: 80, dri: 70, def: 95, phy: 90 } },
   { id: '3', name: 'Batistuta', role: 'Delantero', avatar: '🔥', stats: { pac: 85, sho: 96, pas: 70, dri: 80, def: 45, phy: 88 } },
   { id: '4', name: 'Samuel', role: 'Arquero', avatar: '🧤', stats: { pac: 72, sho: 50, pas: 65, dri: 60, def: 92, phy: 94 } },
-].map(p => ({ ...p, history: { pj: 0, pg: 0, goals: 0 }, glicko: { rating: 1500, rd: 350, vol: 0.06, history: [1500] }, financial: { debt: 0, isBanned: false }, condition: { stamina: 100 } }));
+].map(p => ({ ...p, history: { pj: 0, pg: 0, pe: 0, pp: 0, goals: 0 }, glicko: { rating: 1500, rd: 350, vol: 0.06, history: [1500] }, financial: { debt: 0, isBanned: false }, condition: { stamina: 100 } }));
 
 const BADGE_ICONS = {
   mvp: { icon: '👑', label: 'MVP', color: 'var(--ultimate-gold)', glow: 'rgba(255,215,0,0.5)', desc: 'MVP del último partido' },
@@ -89,6 +89,56 @@ const Dashboard = ({ onLogout }) => {
       loadCloudState();
     }
   }, []);
+
+  useEffect(() => {
+    if (!roster || roster.length === 0) return;
+    const needsMigration = roster.some(p => p.history && (p.history.pe === undefined || p.history.pp === undefined));
+    if (needsMigration) {
+      const migratedRoster = roster.map(p => {
+        if (!p.history) return p;
+        if (p.history.pe !== undefined && p.history.pp !== undefined) return p;
+        
+        let pe = 0;
+        let pp = 0;
+        matchHistory.forEach(match => {
+          const inA = match.teamA?.some(m => m.id === p.id || m.name.toLowerCase() === p.name.toLowerCase());
+          const inB = match.teamB?.some(m => m.id === p.id || m.name.toLowerCase() === p.name.toLowerCase());
+          if (inA || inB) {
+            if (match.winner === 'Draw') {
+              pe++;
+            } else if ((inA && match.winner === 'A') || (inB && match.winner === 'B')) {
+              // Win
+            } else {
+              pp++;
+            }
+          }
+        });
+        
+        const pj = p.history.pj || 0;
+        const pg = p.history.pg || 0;
+        const diff = pj - pg;
+        
+        if (pe + pp !== diff) {
+          if (pe > diff) {
+            pe = diff;
+            pp = 0;
+          } else {
+            pp = diff - pe;
+          }
+        }
+        
+        return {
+          ...p,
+          history: {
+            ...p.history,
+            pe,
+            pp
+          }
+        };
+      });
+      setRoster(migratedRoster);
+    }
+  }, [roster, matchHistory]);
 
   const [viewMode, setViewMode] = useState('builder'); 
   const [selectedPlayerDetails, setSelectedPlayerDetails] = useState(null);
@@ -221,6 +271,22 @@ const Dashboard = ({ onLogout }) => {
               </div>
             </div>
 
+            {/* Detailed Match History Record */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+              <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ color: 'var(--volt-lime)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Ganados (PG)</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.1rem', color: 'var(--volt-lime)' }}>{selectedPlayerDetails.history?.pg || 0}</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ color: 'var(--off-white)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Empatados (PE)</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.1rem', color: 'white' }}>{selectedPlayerDetails.history?.pe || 0}</div>
+              </div>
+              <div style={{ background: 'rgba(255,59,48,0.02)', border: '1px solid rgba(255,59,48,0.1)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ color: 'var(--crimson-red)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Perdidos (PP)</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.1rem', color: 'var(--crimson-red)' }}>{selectedPlayerDetails.history?.pp || 0}</div>
+              </div>
+            </div>
+
             {/* PlayStyles / Logros Details */}
             {getPlayerBadges(selectedPlayerDetails).length > 0 && (
               <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
@@ -321,7 +387,7 @@ const Dashboard = ({ onLogout }) => {
     if (editingPlayerId) {
       setRoster(roster.map(p => p.id === editingPlayerId ? { ...p, name, role, avatar: currentAvatar, stats: {...skills} } : p));
     } else {
-      setRoster([...roster, { id: Date.now().toString(), name, role, avatar: currentAvatar, stats: {...skills}, history: { pj: 0, pg: 0, goals: 0 }, glicko: { rating: 1500, rd: 350, vol: 0.06 }, financial: { debt: 0, isBanned: false }, condition: { stamina: 100 } }]);
+      setRoster([...roster, { id: Date.now().toString(), name, role, avatar: currentAvatar, stats: {...skills}, history: { pj: 0, pg: 0, pe: 0, pp: 0, goals: 0 }, glicko: { rating: 1500, rd: 350, vol: 0.06 }, financial: { debt: 0, isBanned: false }, condition: { stamina: 100 } }]);
     }
     resetForm();
   };
@@ -528,6 +594,8 @@ const Dashboard = ({ onLogout }) => {
              history: { 
                  pj: (ep.history?.pj || 0) + 1, 
                  pg: (ep.history?.pg || 0) + (winnerMatches ? 1 : 0), 
+                 pe: (ep.history?.pe || 0) + (winner === 'Draw' ? 1 : 0),
+                 pp: (ep.history?.pp || 0) + ((!winnerMatches && winner !== 'Draw') ? 1 : 0),
                  goals: (ep.history?.goals || 0) + (playerGoals[matchPlayer.id] || 0),
                  mvpCount: (ep.history?.mvpCount || 0) + (isMvp ? 1 : 0)
              },
@@ -549,6 +617,8 @@ const Dashboard = ({ onLogout }) => {
              history: { 
                  pj: 1, 
                  pg: winnerMatches ? 1 : 0, 
+                 pe: winner === 'Draw' ? 1 : 0,
+                 pp: (!winnerMatches && winner !== 'Draw') ? 1 : 0,
                  goals: playerGoals[matchPlayer.id] || 0,
                  mvpCount: isMvp ? 1 : 0
              },
@@ -722,7 +792,7 @@ const Dashboard = ({ onLogout }) => {
           <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
             <button className="btn-primary" onClick={() => setViewMode('builder')} style={{ width: 'auto' }}>VOLVER AL ARMADO</button>
             <button onClick={() => setViewMode('history')} style={btnSec}>📚 HISTÓRICO</button>
-            <button onClick={() => { if(window.confirm('¿Borrar historial global?')) { setRoster(roster.map(p => ({...p, history:{pj:0,pg:0,goals:0}}))); } }} style={{...btnSec, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)'}}>RESETEAR TEMPORADA</button>
+            <button onClick={() => { if(window.confirm('¿Borrar historial global?')) { setRoster(roster.map(p => ({...p, history:{pj:0,pg:0,pe:0,pp:0,goals:0}}))); } }} style={{...btnSec, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)'}}>RESETEAR TEMPORADA</button>
           </div>
         </header>
 
@@ -736,6 +806,8 @@ const Dashboard = ({ onLogout }) => {
                 <th style={{ padding: '1.5rem 1rem', color: 'var(--volt-lime)', textAlign: 'center' }}>MMR 📈</th>
                 <th style={{ padding: '1.5rem 1rem', color: 'var(--volt-lime)', textAlign: 'center' }}>PJ</th>
                 <th style={{ padding: '1.5rem 1rem', color: 'var(--volt-lime)', textAlign: 'center' }}>PG</th>
+                <th style={{ padding: '1.5rem 1rem', color: 'var(--volt-lime)', textAlign: 'center' }}>PE</th>
+                <th style={{ padding: '1.5rem 1rem', color: 'var(--volt-lime)', textAlign: 'center' }}>PP</th>
                 <th style={{ padding: '1.5rem 1rem', color: 'var(--ultimate-gold)', textAlign: 'center' }}>GOLES</th>
                 <th style={{ padding: '1.5rem 1rem', color: 'var(--electric-cyan)', textAlign: 'center' }}>WIN %</th>
               </tr>
@@ -744,6 +816,8 @@ const Dashboard = ({ onLogout }) => {
               {sortedRoster.map((p, i) => {
                 const pj = p.history?.pj || 0;
                 const pg = p.history?.pg || 0;
+                const pe = p.history?.pe || 0;
+                const pp = p.history?.pp || 0;
                 const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
                 const mmr = Math.round(p.glicko?.rating || 1500);
                 return (
@@ -764,6 +838,8 @@ const Dashboard = ({ onLogout }) => {
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'center' }}>{pj}</td>
                     <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--volt-lime)', fontWeight: 'bold' }}>{pg}</td>
+                    <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--off-white)', opacity: 0.8 }}>{pe}</td>
+                    <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--crimson-red)', fontWeight: '500' }}>{pp}</td>
                     <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--ultimate-gold)', fontWeight: 'bold' }}>{p.history?.goals || 0}</td>
                     <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--electric-cyan)' }}>{winRate}%</td>
                   </tr>
