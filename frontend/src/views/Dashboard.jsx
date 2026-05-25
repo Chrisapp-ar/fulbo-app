@@ -46,6 +46,11 @@ const getPlayerBadges = (p) => {
 };
 
 const Dashboard = ({ onLogout }) => {
+  // ==========================================
+  // ESTADOS DE REACT (Todos agrupados al inicio para evitar Temporal Dead Zone y ReferenceErrors)
+  // ==========================================
+
+  // 1. Estados principales (Roster y Match History)
   const [roster, setRoster] = useState(() => {
     const saved = localStorage.getItem('fulbo_roster');
     if (saved) {
@@ -72,11 +77,60 @@ const Dashboard = ({ onLogout }) => {
     return [];
   });
 
+  // 2. Estados de navegación y detalles
+  const [viewMode, setViewMode] = useState('builder'); 
+  const [selectedPlayerDetails, setSelectedPlayerDetails] = useState(null);
+
+  // 3. Estados de la cinemática de sobre (Pack Opening)
+  const [showPackOpening, setShowPackOpening] = useState(false);
+  const [walkoutPlayer, setWalkoutPlayer] = useState(null);
+  const [walkoutRevealStage, setWalkoutRevealStage] = useState(0);
+
+  // 4. Estados de Mercado Pago y configuración
+  const [mpAccessToken, setMpAccessToken] = useState('');
+  const [mpUserId, setMpUserId] = useState('');
+  const [showMpConfig, setShowMpConfig] = useState(false);
+
+  // 5. Estados del Match Day Lobby
+  const [activeEvent, setActiveEvent] = useState(null);
+  const [eventFormat, setEventFormat] = useState(10);
+  const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
+  const [eventTime, setEventTime] = useState('20:00');
+  const [eventRegistrations, setEventRegistrations] = useState([]);
+  const [hostId, setHostId] = useState(null);
+
+  // 6. Estados del Formulario de Jugadores
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('Mediocampo');
+  const [currentAvatar, setCurrentAvatar] = useState(null);
+  const [skills, setSkills] = useState({ pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
+  const [editingPlayerId, setEditingPlayerId] = useState(null);
+
+  // 7. Estados de La Vaquita y armado de equipos
+  const [pitchCost, setPitchCost] = useState('');
+  const [paymentsMap, setPaymentsMap] = useState({});
+  const [teamA, setTeamA] = useState([]);
+  const [teamB, setTeamB] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDrafting, setIsDrafting] = useState(false);
+  const [revealedCount, setRevealedCount] = useState(0);
+
+  // 8. Estados del partido en vivo e historial
+  const [matchScore, setMatchScore] = useState({ A: 0, B: 0 });
+  const [playerGoals, setPlayerGoals] = useState({}); 
+  const [lastMatchResult, setLastMatchResult] = useState(null);
+
+  // ==========================================
+  // EFECTOS (useEffect) Y SINCRONIZACIÓN
+  // ==========================================
+
   useEffect(() => {
     localStorage.setItem('fulbo_roster', JSON.stringify(roster));
     if (isSupabaseConfigured && supabase) {
        supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) supabase.from('league_state').update({ roster, updated_at: new Date().toISOString() }).eq('host_id', user.id).then();
+       }).catch(err => {
+         console.error("Error updating roster on Supabase:", err);
        });
     }
   }, [roster]);
@@ -86,6 +140,8 @@ const Dashboard = ({ onLogout }) => {
     if (isSupabaseConfigured && supabase) {
        supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) supabase.from('league_state').update({ match_history: matchHistory, updated_at: new Date().toISOString() }).eq('host_id', user.id).then();
+       }).catch(err => {
+         console.error("Error updating match history on Supabase:", err);
        });
     }
   }, [matchHistory]);
@@ -122,17 +178,18 @@ const Dashboard = ({ onLogout }) => {
 
   useEffect(() => {
     if (!roster || roster.length === 0) return;
-    const needsMigration = roster.some(p => p.history && (p.history.pe === undefined || p.history.pp === undefined));
+    const needsMigration = roster.some(p => p && p.history && (p.history.pe === undefined || p.history.pp === undefined));
     if (needsMigration) {
       const migratedRoster = roster.map(p => {
+        if (!p) return p;
         if (!p.history) return p;
         if (p.history.pe !== undefined && p.history.pp !== undefined) return p;
         
         let pe = 0;
         let pp = 0;
         matchHistory.forEach(match => {
-          const inA = match.teamA?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
-          const inB = match.teamB?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
+          const inA = match.teamA?.some(m => m && (m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase())));
+          const inB = match.teamB?.some(m => m && (m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase())));
           if (inA || inB) {
             if (match.winner === 'Draw') {
               pe++;
@@ -169,17 +226,6 @@ const Dashboard = ({ onLogout }) => {
       setRoster(migratedRoster);
     }
   }, [roster, matchHistory]);
-
-  const [viewMode, setViewMode] = useState('builder'); 
-  const [selectedPlayerDetails, setSelectedPlayerDetails] = useState(null);
-  
-  const [showPackOpening, setShowPackOpening] = useState(false);
-  const [walkoutPlayer, setWalkoutPlayer] = useState(null);
-  const [walkoutRevealStage, setWalkoutRevealStage] = useState(0);
-
-  const [mpAccessToken, setMpAccessToken] = useState('');
-  const [mpUserId, setMpUserId] = useState('');
-  const [showMpConfig, setShowMpConfig] = useState(false);
 
   useEffect(() => {
     if (isSupabaseConfigured && supabase && hostId) {
@@ -501,13 +547,7 @@ const Dashboard = ({ onLogout }) => {
     );
   };
   
-  const [activeEvent, setActiveEvent] = useState(null);
-  const [eventFormat, setEventFormat] = useState(10);
-  const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
-  const [eventTime, setEventTime] = useState('20:00');
-  const [eventRegistrations, setEventRegistrations] = useState([]);
-  
-  const [hostId, setHostId] = useState(null);
+
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
        supabase.auth.getUser().then(({ data: { user } }) => {
@@ -564,24 +604,7 @@ const Dashboard = ({ onLogout }) => {
     }
   };
   
-  const [name, setName] = useState('');
-  const [role, setRole] = useState('Mediocampo');
-  const [currentAvatar, setCurrentAvatar] = useState(null);
-  const [skills, setSkills] = useState({ pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
-  const [editingPlayerId, setEditingPlayerId] = useState(null);
-  
-  const [pitchCost, setPitchCost] = useState('');
-  const [paymentsMap, setPaymentsMap] = useState({});
-  
-  const [teamA, setTeamA] = useState([]);
-  const [teamB, setTeamB] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDrafting, setIsDrafting] = useState(false);
-  const [revealedCount, setRevealedCount] = useState(0);
 
-  const [matchScore, setMatchScore] = useState({ A: 0, B: 0 });
-  const [playerGoals, setPlayerGoals] = useState({}); 
-  const [lastMatchResult, setLastMatchResult] = useState(null);
 
   const handleSkillChange = (e) => setSkills({...skills, [e.target.name]: parseInt(e.target.value) || 0 });
 
@@ -738,7 +761,6 @@ const Dashboard = ({ onLogout }) => {
 
       setIsLoading(false);
       setShowPackOpening(true);
-      setPackOpened(false);
       setWalkoutRevealStage(0);
     }, 600);
   };
@@ -1189,37 +1211,7 @@ const Dashboard = ({ onLogout }) => {
 
   // DEFAULT BUILDER MODE
   
-  const PackOpeningStyles = () => (
-    <style>{`
-      @keyframes packGlow {
-        0% { box-shadow: 0 0 20px rgba(255,215,0,0.3); }
-        50% { box-shadow: 0 0 50px rgba(255,215,0,0.7); }
-        100% { box-shadow: 0 0 20px rgba(255,215,0,0.3); }
-      }
-      @keyframes glitch {
-        0% { transform: translate(0) }
-        20% { transform: translate(-2px, 2px) }
-        40% { transform: translate(-2px, -2px) }
-        60% { transform: translate(2px, 2px) }
-        80% { transform: translate(2px, -2px) }
-        100% { transform: translate(0) }
-      }
-      @keyframes cardReveal {
-        0% { transform: scale(0.3) rotateY(90deg); opacity: 0; }
-        70% { transform: scale(1.15) rotateY(-10deg); opacity: 1; }
-        100% { transform: scale(1) rotateY(0deg); opacity: 1; }
-      }
-      .pack-pulsating {
-        animation: packGlow 2s infinite ease-in-out;
-      }
-      .pack-glitch {
-        animation: glitch 0.15s infinite;
-      }
-      .card-reveal-anim {
-        animation: cardReveal 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-      }
-    `}</style>
-  );
+
 
   // Limpiar duplicados por nombre
   const uniqueRegistrationsMap = {};
@@ -1248,7 +1240,35 @@ const Dashboard = ({ onLogout }) => {
           color: 'white',
           overflow: 'hidden'
         }}>
-          <PackOpeningStyles />
+          <style>{`
+            @keyframes packGlow {
+              0% { box-shadow: 0 0 20px rgba(255,215,0,0.3); }
+              50% { box-shadow: 0 0 50px rgba(255,215,0,0.7); }
+              100% { box-shadow: 0 0 20px rgba(255,215,0,0.3); }
+            }
+            @keyframes glitch {
+              0% { transform: translate(0) }
+              20% { transform: translate(-2px, 2px) }
+              40% { transform: translate(-2px, -2px) }
+              60% { transform: translate(2px, 2px) }
+              80% { transform: translate(2px, -2px) }
+              100% { transform: translate(0) }
+            }
+            @keyframes cardReveal {
+              0% { transform: scale(0.3) rotateY(90deg); opacity: 0; }
+              70% { transform: scale(1.15) rotateY(-10deg); opacity: 1; }
+              100% { transform: scale(1) rotateY(0deg); opacity: 1; }
+            }
+            .pack-pulsating {
+              animation: packGlow 2s infinite ease-in-out;
+            }
+            .pack-glitch {
+              animation: glitch 0.15s infinite;
+            }
+            .card-reveal-anim {
+              animation: cardReveal 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            }
+          `}</style>
           
           <div style={{
             position: 'absolute',
