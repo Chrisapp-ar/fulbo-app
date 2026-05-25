@@ -161,14 +161,23 @@ const CompanionApp = ({ leagueId }) => {
   useEffect(() => {
     if (isSupabaseConfigured && supabase && leagueId) {
       const fetchLeague = async () => {
-        const { data, error } = await supabase.from('league_state').select('*').eq('host_id', leagueId).maybeSingle();
-        processLeagueData(data);
+        try {
+          const { data, error } = await supabase.from('league_state').select('*').eq('host_id', leagueId);
+          if (data && data.length > 0) {
+            processLeagueData(data[0]);
+          } else {
+            processLeagueData(null);
+          }
+        } catch (err) {
+          console.error("Error fetching league state:", err);
+          processLeagueData(null);
+        }
         setLoading(false);
       };
       
       fetchLeague();
 
-      // Suscribirse a cambios en tiempo real en league_state
+      // Suscribirse a cambios en tiempo real en league_state sin filtro UUID
       const channel = supabase
         .channel(`league_state_${leagueId}`)
         .on(
@@ -176,11 +185,10 @@ const CompanionApp = ({ leagueId }) => {
           {
             event: '*',
             schema: 'public',
-            table: 'league_state',
-            filter: `host_id=eq.${leagueId}`
+            table: 'league_state'
           },
           (payload) => {
-            if (payload.new) {
+            if (payload.new && payload.new.host_id === leagueId) {
               processLeagueData(payload.new);
             }
           }

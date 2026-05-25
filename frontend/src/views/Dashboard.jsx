@@ -93,22 +93,27 @@ const Dashboard = ({ onLogout }) => {
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
       const loadCloudState = async () => {
-         const { data: { user } } = await supabase.auth.getUser();
-         if (!user) return;
-         const { data, error } = await supabase.from('league_state').select('*').eq('host_id', user.id).maybeSingle();
-         if (data) {
-            if (Array.isArray(data.roster) && data.roster.length > 0) setRoster(data.roster);
-            if (Array.isArray(data.match_history) && data.match_history.length > 0) setMatchHistory(data.match_history);
-            if (data.active_event) setActiveEvent(data.active_event);
-         } else {
-            // Inicialización segura si no existe la fila
-            await supabase.from('league_state').insert({
-               host_id: user.id,
-               roster: roster,
-               match_history: matchHistory,
-               active_event: null,
-               updated_at: new Date().toISOString()
-            });
+         try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const { data, error } = await supabase.from('league_state').select('*').eq('host_id', user.id);
+            if (data && data.length > 0) {
+               const leagueData = data[0];
+               if (Array.isArray(leagueData.roster) && leagueData.roster.length > 0) setRoster(leagueData.roster);
+               if (Array.isArray(leagueData.match_history) && leagueData.match_history.length > 0) setMatchHistory(leagueData.match_history);
+               if (leagueData.active_event) setActiveEvent(leagueData.active_event);
+            } else {
+               // Inicialización segura si no existe la fila
+               await supabase.from('league_state').insert({
+                  host_id: user.id,
+                  roster: roster,
+                  match_history: matchHistory,
+                  active_event: null,
+                  updated_at: new Date().toISOString()
+               });
+            }
+         } catch (err) {
+            console.error("Error loading cloud state:", err);
          }
       };
       loadCloudState();
@@ -178,11 +183,13 @@ const Dashboard = ({ onLogout }) => {
 
   useEffect(() => {
     if (isSupabaseConfigured && supabase && hostId) {
-      supabase.from('hosts').select('mercadopago_access_token, mercadopago_user_id').eq('id', hostId).single().then(({ data }) => {
-        if (data) {
-          setMpAccessToken(data.mercadopago_access_token || '');
-          setMpUserId(data.mercadopago_user_id || '');
+      supabase.from('hosts').select('mercadopago_access_token, mercadopago_user_id').eq('id', hostId).then(({ data, error }) => {
+        if (data && data.length > 0) {
+          setMpAccessToken(data[0].mercadopago_access_token || '');
+          setMpUserId(data[0].mercadopago_user_id || '');
         }
+      }).catch(err => {
+        console.error("Error fetching host MP settings:", err);
       });
     }
   }, [hostId]);
@@ -525,7 +532,7 @@ const Dashboard = ({ onLogout }) => {
     };
     fetchRegistrations();
 
-    // Suscribirse a cambios en tiempo real
+    // Suscribirse a cambios en tiempo real sin filtro de UUID para máxima compatibilidad
     const channel = supabase
       .channel('lobby-registrations')
       .on(
@@ -533,11 +540,12 @@ const Dashboard = ({ onLogout }) => {
         {
           event: '*',
           schema: 'public',
-          table: 'event_registrations',
-          filter: `host_id=eq.${hostId}`
+          table: 'event_registrations'
         },
-        () => {
-          fetchRegistrations();
+        (payload) => {
+          if ((payload.new && payload.new.host_id === hostId) || (payload.old && payload.old.host_id === hostId)) {
+            fetchRegistrations();
+          }
         }
       )
       .subscribe();
