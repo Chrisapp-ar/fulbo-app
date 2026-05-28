@@ -732,14 +732,33 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                               </div>
                               
                               <form onSubmit={handleRegSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                <input type="text" placeholder="Tu Nombre (Ej: Messi)" value={regName} onChange={(e) => setRegName(e.target.value)} required style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '0.6rem', borderRadius: '6px', width: '100%', fontSize: '0.85rem' }} />
+                                <input type="text" placeholder="Tu Nombre (Ej: Messi)" value={regName} onChange={(e) => setRegName(e.target.value)} required className="input-field" />
                                 
-                                <select value={regRole} onChange={(e) => setRegRole(e.target.value)} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '0.6rem', borderRadius: '6px', width: '100%', fontSize: '0.85rem' }}>
-                                  <option value="Arquero">Arquero</option>
-                                  <option value="Defensor">Defensor</option>
-                                  <option value="Mediocampo">Mediocampo</option>
-                                  <option value="Delantero">Delantero</option>
-                                </select>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--off-white)', fontWeight: 'bold' }}>POSICIÓN EN LA CANCHA</span>
+                                  <div className="segmented-control">
+                                    {[
+                                      { val: 'Arquero', label: 'GK' },
+                                      { val: 'Defensor', label: 'DEF' },
+                                      { val: 'Mediocampo', label: 'MED' },
+                                      { val: 'Delantero', label: 'DEL' }
+                                    ].map(r => (
+                                      <button
+                                        key={r.val}
+                                        type="button"
+                                        onClick={() => setRegRole(r.val)}
+                                        className={`segment-btn ${regRole === r.val ? 'active' : ''}`}
+                                        style={regRole === r.val ? {
+                                          background: r.val === 'Arquero' ? 'rgb(168, 85, 247)' : (r.val === 'Defensor' ? 'var(--electric-cyan)' : (r.val === 'Mediocampo' ? 'var(--volt-lime)' : 'var(--crimson-red)')),
+                                          color: 'black',
+                                          boxShadow: 'none'
+                                        } : {}}
+                                      >
+                                        {r.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                                   <label style={{ color: 'var(--off-white)', fontSize: '0.75rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>SELECCIONA TU AVATAR EMOJI</label>

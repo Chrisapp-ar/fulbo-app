@@ -1708,10 +1708,10 @@ const Dashboard = ({ userId, onLogout }) => {
                 ) : (
                   <>
                     <h3 style={{ color: 'var(--electric-cyan)', marginBottom: '1rem' }}>Equipos Armados</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div className="responsive-flex" style={{ display: 'flex', position: 'relative', alignItems: 'center', gap: '1rem' }}>
                       {/* Team A */}
-                      <div style={{ background: 'rgba(204,255,0,0.03)', border: '1px solid rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px' }}>
-                        <h4 className="glow-text-volt" style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', fontWeight: 'bold' }}>EQUIPO A (OVR: {getTeamRating(teamA)})</h4>
+                      <div className="team-column-a" style={{ background: 'rgba(204,255,0,0.03)', border: '1px solid rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px', width: '100%' }}>
+                        <h4 className="glow-text-volt" style={{ margin: '0 0 0.6rem 0', fontSize: '1.1rem', fontWeight: 'bold', textAlign: 'center' }}>EQUIPO A (OVR: {getTeamRating(teamA)})</h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                           {teamA.map(p => (
                             <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '0.4rem 0.8rem', borderRadius: '6px' }}>
@@ -1729,9 +1729,14 @@ const Dashboard = ({ userId, onLogout }) => {
                         </div>
                       </div>
 
+                      {/* VS Divider */}
+                      <div className="responsive-hidden" style={{ width: '45px', height: '45px', background: 'var(--pitch-black)', border: '2px solid rgba(255,255,255,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, boxShadow: '0 0 15px rgba(0,0,0,0.8)', flexShrink: 0 }}>
+                        <span style={{ fontFamily: 'var(--font-primary)', fontWeight: '900', fontSize: '1rem', color: 'var(--pure-white)' }}>VS</span>
+                      </div>
+
                       {/* Team B */}
-                      <div style={{ background: 'rgba(0,240,255,0.03)', border: '1px solid rgba(0,240,255,0.1)', padding: '1rem', borderRadius: '8px' }}>
-                        <h4 className="glow-text-cyan" style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', fontWeight: 'bold' }}>EQUIPO B (OVR: {getTeamRating(teamB)})</h4>
+                      <div className="team-column-b" style={{ background: 'rgba(0,240,255,0.03)', border: '1px solid rgba(0,240,255,0.1)', padding: '1rem', borderRadius: '8px', width: '100%' }}>
+                        <h4 className="glow-text-cyan" style={{ margin: '0 0 0.6rem 0', fontSize: '1.1rem', fontWeight: 'bold', textAlign: 'center' }}>EQUIPO B (OVR: {getTeamRating(teamB)})</h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                           {teamB.map(p => (
                             <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '0.4rem 0.8rem', borderRadius: '6px' }}>
@@ -2165,13 +2170,39 @@ const Dashboard = ({ userId, onLogout }) => {
         </div>
       )}
       <header style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-        <div className="responsive-header-actions" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', gap: '1rem' }}>
-          <div className="responsive-flex-wrap" style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-            <button onClick={() => setViewMode('builder')} style={{ ...btnSec, borderColor: viewMode === 'builder' ? 'var(--volt-lime)' : 'var(--electric-cyan)', color: viewMode === 'builder' ? 'var(--volt-lime)' : 'white' }}>⚙️ ARMADO</button>
-            <button onClick={() => setViewMode('active_matches')} style={{ ...btnSec, borderColor: viewMode === 'active_matches' ? 'var(--volt-lime)' : 'var(--electric-cyan)', color: viewMode === 'active_matches' ? 'var(--volt-lime)' : 'white' }}>📅 PARTIDOS CREADOS</button>
-            <button onClick={() => setViewMode('stats')} style={{ ...btnSec, borderColor: viewMode === 'stats' ? 'var(--volt-lime)' : 'var(--electric-cyan)', color: viewMode === 'stats' ? 'var(--volt-lime)' : 'white' }}>🏆 LEADERBOARD</button>
-            <button onClick={() => setViewMode('history')} style={{ ...btnSec, borderColor: viewMode === 'history' ? 'var(--volt-lime)' : 'var(--electric-cyan)', color: viewMode === 'history' ? 'var(--volt-lime)' : 'white' }}>📚 HISTÓRICO</button>
-            <button onClick={copyLeagueLink} style={{ ...btnSec, borderColor: '#00F0FF', color: '#00F0FF', boxShadow: '0 0 10px rgba(0,240,255,0.3)' }}>🔗 COMPARTIR LIGA</button>
+        <div className="responsive-header-actions" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+          <div className="nav-tabs-container" style={{ margin: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button 
+              onClick={() => setViewMode('builder')} 
+              className={`nav-tab-btn ${viewMode === 'builder' ? 'active' : ''}`}
+            >
+              ⚙️ ARMADO
+            </button>
+            <button 
+              onClick={() => setViewMode('active_matches')} 
+              className={`nav-tab-btn ${viewMode === 'active_matches' ? 'active' : ''}`}
+            >
+              📅 PARTIDOS CREADOS
+            </button>
+            <button 
+              onClick={() => setViewMode('stats')} 
+              className={`nav-tab-btn ${viewMode === 'stats' ? 'active' : ''}`}
+            >
+              🏆 LEADERBOARD
+            </button>
+            <button 
+              onClick={() => setViewMode('history')} 
+              className={`nav-tab-btn ${viewMode === 'history' ? 'active' : ''}`}
+            >
+              📚 HISTÓRICO
+            </button>
+            <button 
+              onClick={copyLeagueLink} 
+              className="nav-tab-btn" 
+              style={{ border: '1px solid rgba(0, 240, 255, 0.3)', color: 'var(--electric-cyan)' }}
+            >
+              🔗 COMPARTIR LIGA
+            </button>
 
             {/* Notification Bell */}
             {activeEvent && (
@@ -2271,14 +2302,24 @@ const Dashboard = ({ userId, onLogout }) => {
             <h3 style={{ color: 'var(--volt-lime)', margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>⚡ MATCH DAY LOBBY</h3>
             {!activeEvent ? (
                <div className="responsive-flex" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} style={inputStyle} />
-                  <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} style={inputStyle} />
-                  <select value={eventFormat} onChange={e => setEventFormat(parseInt(e.target.value))} style={inputStyle}>
-                     <option value={10}>Fulbo 5 (10 Jug)</option>
-                     <option value={14}>Fulbo 7 (14 Jug)</option>
-                     <option value={18} disabled style={{ color: 'rgba(255,255,255,0.2)' }}>Fulbo 9 (18 Jug) - Máx 15 Jug. en Plan</option>
-                     <option value={22} disabled style={{ color: 'rgba(255,255,255,0.2)' }}>Fulbo 11 (22 Jug) - Máx 15 Jug. en Plan</option>
-                  </select>
+                  <input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} className="input-field" />
+                  <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="input-field" />
+                  <div className="segmented-control" style={{ minWidth: '220px' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => setEventFormat(10)} 
+                      className={`segment-btn ${eventFormat === 10 ? 'active' : ''}`}
+                    >
+                      🏃‍♂️ 5v5 (10 J)
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setEventFormat(14)} 
+                      className={`segment-btn ${eventFormat === 14 ? 'active' : ''}`}
+                    >
+                      🔥 7v7 (14 J)
+                    </button>
+                  </div>
                   <button onClick={() => setActiveEvent({ date: eventDate, time: eventTime, format: eventFormat, status: 'lobby', notifications: [] })} className="btn-primary" style={{ padding: '0.5rem 1.5rem', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0, fontSize: '1rem' }}>CREAR EVENTO</button>
                </div>
             ) : (
@@ -2329,21 +2370,40 @@ const Dashboard = ({ userId, onLogout }) => {
           <div>
             <h3 style={{ color: 'var(--electric-cyan)', marginBottom: '1rem', fontSize: '1.1rem' }}>{editingPlayerId ? 'Editar Jugador' : 'Agregar Jugador'}</h3>
             <form onSubmit={savePlayer} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              <input style={inputStyle} type="text" placeholder="Nombre (Ej: Messi)" value={name} onChange={(e) => setName(e.target.value)} required />
+              <input className="input-field" type="text" placeholder="Nombre (Ej: Messi)" value={name} onChange={(e) => setName(e.target.value)} required />
               <AvatarSelector onSelectAvatar={setCurrentAvatar} currentAvatar={currentAvatar} />
-              <select style={inputStyle} value={role} onChange={(e) => setRole(e.target.value)}>
-                <option value="Arquero">Arquero</option>
-                <option value="Defensor">Defensor</option>
-                <option value="Mediocampo">Mediocampo</option>
-                <option value="Delantero">Delantero</option>
-              </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.4rem' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--off-white)', fontWeight: 'bold', letterSpacing: '1px' }}>ROL / POSICIÓN</span>
+                <div className="segmented-control">
+                  {[
+                    { val: 'Arquero', label: 'GK', cls: 'role-arquero' },
+                    { val: 'Defensor', label: 'DEF', cls: 'role-defensor' },
+                    { val: 'Mediocampo', label: 'MED', cls: 'role-mediocampo' },
+                    { val: 'Delantero', label: 'DEL', cls: 'role-delantero' }
+                  ].map(r => (
+                    <button
+                      key={r.val}
+                      type="button"
+                      onClick={() => setRole(r.val)}
+                      className={`segment-btn ${role === r.val ? 'active' : ''}`}
+                      style={role === r.val ? {
+                        background: r.val === 'Arquero' ? 'rgb(168, 85, 247)' : (r.val === 'Defensor' ? 'var(--electric-cyan)' : (r.val === 'Mediocampo' ? 'var(--volt-lime)' : 'var(--crimson-red)')),
+                        color: 'black',
+                        boxShadow: 'none'
+                      } : {}}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Pace: Ritmo / Velocidad pura"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>PAC</span><input type="number" name="pac" value={skills.pac} onChange={handleSkillChange} style={inputStyle} min="1" max="99" /></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Shooting: Capacidad de tiro y definición"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>SHO</span><input type="number" name="sho" value={skills.sho} onChange={handleSkillChange} style={inputStyle} min="1" max="99" /></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Passing: Precisión de pase y visión"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>PAS</span><input type="number" name="pas" value={skills.pas} onChange={handleSkillChange} style={inputStyle} min="1" max="99" /></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Dribbling: Regate, agilidad y control"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>DRI</span><input type="number" name="dri" value={skills.dri} onChange={handleSkillChange} style={inputStyle} min="1" max="99" /></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Defending: Marcaje e intercepciones"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>DEF</span><input type="number" name="def" value={skills.def} onChange={handleSkillChange} style={inputStyle} min="1" max="99" /></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Physical: Fuerza y resistencia física"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>PHY</span><input type="number" name="phy" value={skills.phy} onChange={handleSkillChange} style={inputStyle} min="1" max="99" /></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Pace: Ritmo / Velocidad pura"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>PAC</span><input type="number" name="pac" value={skills.pac} onChange={handleSkillChange} className="input-field" min="1" max="99" /></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Shooting: Capacidad de tiro y definición"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>SHO</span><input type="number" name="sho" value={skills.sho} onChange={handleSkillChange} className="input-field" min="1" max="99" /></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Passing: Precisión de pase y visión"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>PAS</span><input type="number" name="pas" value={skills.pas} onChange={handleSkillChange} className="input-field" min="1" max="99" /></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Dribbling: Regate, agilidad y control"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>DRI</span><input type="number" name="dri" value={skills.dri} onChange={handleSkillChange} className="input-field" min="1" max="99" /></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Defending: Marcaje e intercepciones"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>DEF</span><input type="number" name="def" value={skills.def} onChange={handleSkillChange} className="input-field" min="1" max="99" /></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Physical: Fuerza y resistencia física"><span style={{width:'30px', fontSize:'0.8rem', color:'var(--off-white)', cursor:'help', borderBottom:'1px dotted rgba(255,255,255,0.3)'}}>PHY</span><input type="number" name="phy" value={skills.phy} onChange={handleSkillChange} className="input-field" min="1" max="99" /></div>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <button type="submit" className="btn-primary" style={{ flex: 1, padding: '0.8rem', fontSize: '1rem' }}>{editingPlayerId ? 'Actualizar' : 'Sumar a Plantilla'}</button>
@@ -2500,7 +2560,7 @@ const Dashboard = ({ userId, onLogout }) => {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span style={{ color: 'var(--off-white)', fontSize: '0.9rem' }}>Costo Cancha ($):</span>
-                    <input type="number" value={pitchCost} onChange={(e) => setPitchCost(e.target.value)} style={{ ...inputStyle, width: '100px', padding: '0.3rem' }} placeholder="0" />
+                    <input type="number" value={pitchCost} onChange={(e) => setPitchCost(e.target.value)} className="input-field" style={{ width: '100px', padding: '0.3rem' }} placeholder="0" />
                   </div>
                 </div>
                 
