@@ -51,6 +51,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [leagueExists, setLeagueExists] = useState(false);
   const [regAvatar, setRegAvatar] = useState('👤');
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState(false);
+  const [eventRegistrations, setEventRegistrations] = useState([]);
 
   useEffect(() => {
     if (currentUser?.user_metadata?.full_name && !regName) {
@@ -230,6 +231,13 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           } else {
             processLeagueData(null);
           }
+
+          // Obtener registros de eventos
+          const { data: regsData } = await supabase
+            .from('event_registrations')
+            .select('*')
+            .eq('host_id', leagueId);
+          if (regsData) setEventRegistrations(regsData);
         } catch (err) {
           console.error("Exception fetching league state:", err);
           processLeagueData(null);
@@ -258,8 +266,32 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         )
         .subscribe();
 
+      // Suscribirse a cambios en tiempo real en event_registrations
+      const regsChannel = supabase
+        .channel(`regs_${leagueId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'event_registrations'
+          },
+          (payload) => {
+            // Recargar registros
+            supabase
+              .from('event_registrations')
+              .select('*')
+              .eq('host_id', leagueId)
+              .then(({ data }) => {
+                if (data) setEventRegistrations(data);
+              });
+          }
+        )
+        .subscribe();
+
       return () => {
         supabase.removeChannel(channel);
+        supabase.removeChannel(regsChannel);
       };
     } else {
       processLeagueData(null);
@@ -436,6 +468,16 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
 
   const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id));
 
+  const uniqueRegistrationsMap = {};
+  eventRegistrations.forEach(r => {
+    if (r && r.name) {
+      uniqueRegistrationsMap[r.name.toLowerCase().trim()] = r;
+    }
+  });
+  const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
+
+  const isUserRegistered = uniqueRegistrations.some(r => r.player_id === currentUser?.id || (r.name && currentUser?.user_metadata?.full_name && r.name.toLowerCase().trim() === currentUser.user_metadata.full_name.toLowerCase().trim()));
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '2rem 1rem', fontFamily: 'var(--font-secondary)' }}>
       {/* Cerrar Sesión */}
@@ -557,6 +599,25 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           🏆 POSICIONES (MMR)
         </button>
         <button 
+          onClick={() => setActiveTab('active_matches')}
+          style={{
+            flex: 1,
+            background: activeTab === 'active_matches' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
+            color: activeTab === 'active_matches' ? 'black' : 'white',
+            border: 'none',
+            padding: '0.8rem',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            fontFamily: 'var(--font-primary)',
+            fontSize: '0.85rem',
+            transition: 'all 0.2s',
+            borderBottom: activeTab === 'active_matches' ? '3px solid var(--electric-cyan)' : 'none'
+          }}
+        >
+          📅 PARTIDOS CREADOS
+        </button>
+        <button 
           onClick={() => setActiveTab('history')}
           style={{
             flex: 1,
@@ -577,85 +638,233 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         </button>
       </div>
 
-      {activeEvent && !isEventExpired(activeEvent) && !isRegistering && !regSuccess && (
-        <div style={{ background: 'var(--volt-lime)', color: 'black', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', textAlign: 'center', boxShadow: '0 0 20px rgba(204,255,0,0.4)', animation: 'pulse 2s infinite', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
-          <h3 style={{ margin: '0 0 0.5rem 0', fontWeight: '900', fontSize: '1.5rem', fontStyle: 'italic' }}>⚡ MATCH DAY ⚡</h3>
-          <p style={{ margin: '0 0 1rem 0', fontWeight: 'bold' }}>{activeEvent.date} a las {activeEvent.time} | Formato: {activeEvent.format} Jugadores</p>
-          <button onClick={() => setIsRegistering(true)} style={{ background: 'black', color: 'var(--volt-lime)', border: 'none', padding: '1rem 2rem', fontSize: '1.2rem', fontWeight: '900', borderRadius: '30px', cursor: 'pointer', width: '100%', fontFamily: 'var(--font-primary)' }}>INSCRIBIRSE AHORA</button>
-        </div>
-      )}
-
-      {activeEvent && !isEventExpired(activeEvent) && regSuccess && (
-        <div style={{ background: 'rgba(37,211,102,0.1)', border: '2px solid #25D366', color: '#25D366', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', textAlign: 'center', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
-          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>¡INSCRITO! ✅</h3>
-          <p style={{ margin: 0, fontSize: '0.9rem' }}>Tus stats temporales han sido enviadas. Espera a que el Organizador inicie el Draft En Vivo.</p>
-        </div>
-      )}
-
-      {isRegistering && (
-        <div style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid var(--electric-cyan)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ color: 'var(--electric-cyan)', margin: 0 }}>FICHA TÉCNICA</h3>
-            <button onClick={() => setIsRegistering(false)} style={{ background: 'none', border: 'none', color: 'var(--off-white)', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
-          </div>
-          
-          <form onSubmit={handleRegSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <input type="text" placeholder="Tu Nombre (Ej: Messi)" value={regName} onChange={(e) => setRegName(e.target.value)} required style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '0.8rem', borderRadius: '8px', width: '100%' }} />
-            
-            <select value={regRole} onChange={(e) => setRegRole(e.target.value)} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '0.8rem', borderRadius: '8px', width: '100%' }}>
-              <option value="Arquero">Arquero</option>
-              <option value="Defensor">Defensor</option>
-              <option value="Mediocampo">Mediocampo</option>
-              <option value="Delantero">Delantero</option>
-            </select>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ color: 'var(--off-white)', fontSize: '0.8rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>SELECCIONA TU AVATAR EMOJI</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.8rem', borderRadius: '8px' }}>
-                {['👤', '⚽', '🏃‍♂️', '🔥', '🌟', '🧤', '🛡️', '🎯', '⚡', '🏆', '👽', '🦁', '💀', '🤖'].map(emoji => (
-                  <button 
-                    key={emoji}
-                    type="button"
-                    onClick={() => setRegAvatar(emoji)}
-                    style={{
-                      background: regAvatar === emoji ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
-                      border: 'none',
-                      borderRadius: '4px',
-                      fontSize: '1.5rem',
-                      width: '40px',
-                      height: '40px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'transform 0.1s ease, background 0.2s ease',
-                      transform: regAvatar === emoji ? 'scale(1.15)' : 'none'
-                    }}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
-              <h4 style={{ color: 'var(--pure-white)', marginTop: 0, textAlign: 'center', marginBottom: '1rem' }}>ATRIBUTOS TÁCTICOS</h4>
-              {['pac', 'sho', 'pas', 'dri', 'def', 'phy'].map(attr => (
-                <div key={attr} style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-                  <span style={{ color: 'var(--off-white)', textTransform: 'uppercase', width: '30px', fontWeight: 'bold', fontSize: '0.8rem' }}>{attr}</span>
-                  <input type="range" min="1" max="99" value={regStats[attr]} onChange={(e) => setRegStats({...regStats, [attr]: parseInt(e.target.value)})} style={{ flex: 1, accentColor: 'var(--volt-lime)' }} />
-                  <span className="glow-text-volt" style={{ width: '25px', textAlign: 'right', fontWeight: 'bold' }}>{regStats[attr]}</span>
+      {activeTab === 'active_matches' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
+          {activeEvent && !isEventExpired(activeEvent) ? (
+            <div className="glass-panel" style={{ padding: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+              {/* Header Info */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem', marginBottom: '1.2rem' }}>
+                <div>
+                  <span style={{
+                    background: activeEvent.status === 'lobby' ? 'var(--volt-lime)' : (activeEvent.status === 'preview' ? 'var(--ultimate-gold)' : 'var(--crimson-red)'),
+                    color: 'black',
+                    padding: '0.15rem 0.6rem',
+                    borderRadius: '20px',
+                    fontWeight: 'bold',
+                    fontSize: '0.7rem',
+                    textTransform: 'uppercase'
+                  }}>
+                    {activeEvent.status === 'lobby' ? 'Convocatoria Abierta' : (activeEvent.status === 'preview' ? 'Equipos Listos' : 'Partido en Curso ⚽')}
+                  </span>
+                  <h3 style={{ color: 'white', margin: '0.4rem 0 0 0', fontSize: '1.1rem' }}>
+                    Partido: {activeEvent.date} @ {activeEvent.time}
+                  </h3>
                 </div>
-              ))}
+                <span style={{ color: 'var(--electric-cyan)', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  {activeEvent.format} Jugadores
+                </span>
+              </div>
+
+              {/* Lobby State */}
+              {activeEvent.status === 'lobby' && (
+                <div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', marginBottom: '1.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                      <span style={{ color: 'var(--off-white)' }}>Inscritos:</span>
+                      <strong style={{ color: 'white' }}>{uniqueRegistrations.length} / {activeEvent.format}</strong>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden', marginBottom: '0.5rem' }}>
+                      <div style={{
+                        width: `${Math.min(100, (uniqueRegistrations.length / activeEvent.format) * 100)}%`,
+                        height: '100%',
+                        background: uniqueRegistrations.length >= activeEvent.format ? 'var(--crimson-red)' : 'var(--volt-lime)',
+                        transition: 'width 0.3s'
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                      <span style={{ color: 'var(--off-white)' }}>Vacantes disponibles:</span>
+                      <strong style={{ color: uniqueRegistrations.length >= activeEvent.format ? 'var(--crimson-red)' : 'var(--volt-lime)' }}>
+                        {Math.max(0, activeEvent.format - uniqueRegistrations.length)}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Confirmed list */}
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <h4 style={{ color: 'var(--electric-cyan)', fontSize: '0.85rem', margin: '0 0 0.6rem 0', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>CONVOCADOS ({uniqueRegistrations.length})</h4>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {uniqueRegistrations.length === 0 ? (
+                        <span style={{ color: 'var(--off-white)', fontSize: '0.8rem' }}>Nadie registrado aún. ¡Sé el primero!</span>
+                      ) : (
+                        uniqueRegistrations.map((r, i) => (
+                          <div key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.75rem', color: 'white', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <span>{r.avatar || '👤'}</span>
+                            <span style={{ fontWeight: 'bold' }}>{r.name}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action or register form */}
+                  {isUserRegistered ? (
+                    <div style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid #25D366', color: '#25D366', padding: '1.2rem', borderRadius: '8px', textAlign: 'center', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                      ¡Estás inscrito en este partido! ✅<br />
+                      <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.8 }}>Espera a que el organizador arme los equipos.</span>
+                    </div>
+                  ) : (
+                    <div>
+                      {uniqueRegistrations.length >= activeEvent.format ? (
+                        <div style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid var(--crimson-red)', color: 'var(--crimson-red)', padding: '1.2rem', borderRadius: '8px', textAlign: 'center', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                          Cupo completo. No hay más vacantes.
+                        </div>
+                      ) : (
+                        <div>
+                          {!isRegistering ? (
+                            <button onClick={() => setIsRegistering(true)} className="btn-primary" style={{ padding: '0.8rem' }}>
+                              INSCRIBIRSE AHORA
+                            </button>
+                          ) : (
+                            <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '1.2rem', borderRadius: '8px', animation: 'fadeIn 0.2s' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <h4 style={{ color: 'var(--electric-cyan)', margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>FICHA TÉCNICA</h4>
+                                <button onClick={() => setIsRegistering(false)} style={{ background: 'none', border: 'none', color: 'var(--off-white)', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+                              </div>
+                              
+                              <form onSubmit={handleRegSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                <input type="text" placeholder="Tu Nombre (Ej: Messi)" value={regName} onChange={(e) => setRegName(e.target.value)} required style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '0.6rem', borderRadius: '6px', width: '100%', fontSize: '0.85rem' }} />
+                                
+                                <select value={regRole} onChange={(e) => setRegRole(e.target.value)} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '0.6rem', borderRadius: '6px', width: '100%', fontSize: '0.85rem' }}>
+                                  <option value="Arquero">Arquero</option>
+                                  <option value="Defensor">Defensor</option>
+                                  <option value="Mediocampo">Mediocampo</option>
+                                  <option value="Delantero">Delantero</option>
+                                </select>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                  <label style={{ color: 'var(--off-white)', fontSize: '0.75rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>SELECCIONA TU AVATAR EMOJI</label>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.6rem', borderRadius: '6px' }}>
+                                    {['👤', '⚽', '🏃‍♂️', '🔥', '🌟', '🧤', '🛡️', '🎯', '⚡', '🏆', '👽', '🦁', '💀', '🤖'].map(emoji => (
+                                      <button 
+                                        key={emoji}
+                                        type="button"
+                                        onClick={() => setRegAvatar(emoji)}
+                                        style={{
+                                          background: regAvatar === emoji ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '1.2rem',
+                                          width: '35px',
+                                          height: '35px',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          transition: 'transform 0.1s ease',
+                                          transform: regAvatar === emoji ? 'scale(1.15)' : 'none'
+                                        }}
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                
+                                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '6px' }}>
+                                  <h5 style={{ color: 'var(--pure-white)', margin: '0 0 0.6rem 0', fontSize: '0.8rem', textAlign: 'center', fontWeight: 'bold' }}>ATRIBUTOS TÁCTICOS</h5>
+                                  {['pac', 'sho', 'pas', 'dri', 'def', 'phy'].map(attr => (
+                                    <div key={attr} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.4rem' }}>
+                                      <span style={{ color: 'var(--off-white)', textTransform: 'uppercase', width: '25px', fontWeight: 'bold', fontSize: '0.7rem' }}>{attr}</span>
+                                      <input type="range" min="1" max="99" value={regStats[attr]} onChange={(e) => setRegStats({...regStats, [attr]: parseInt(e.target.value)})} style={{ flex: 1, accentColor: 'var(--volt-lime)' }} />
+                                      <span className="glow-text-volt" style={{ width: '20px', textAlign: 'right', fontWeight: 'bold', fontSize: '0.75rem' }}>{regStats[attr]}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', background: 'rgba(204,255,0,0.1)', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--volt-lime)' }}>
+                                  <span style={{ color: 'white', fontWeight: 'bold', fontSize: '0.8rem' }}>OVR PROYECTADO:</span>
+                                  <span className="glow-text-volt" style={{ fontSize: '1.5rem', fontWeight: '900' }}>{Math.round((regStats.pac + regStats.sho + regStats.pas + regStats.dri + regStats.def + regStats.phy)/6)}</span>
+                                </div>
+                                
+                                <button type="submit" className="btn-primary" style={{ padding: '0.7rem', fontSize: '0.9rem' }}>ENVIAR FICHA AL DRAFT</button>
+                              </form>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Preview or Live Match State */}
+              {(activeEvent.status === 'preview' || activeEvent.status === 'match') && (
+                <div>
+                  {activeEvent.status === 'match' && activeEvent.matchScore && (
+                    <div style={{
+                      background: 'rgba(255,59,48,0.1)',
+                      border: '2px solid var(--crimson-red)',
+                      borderRadius: '8px',
+                      padding: '1rem',
+                      textAlign: 'center',
+                      marginBottom: '1.5rem',
+                      animation: 'pulse 1.5s infinite'
+                    }}>
+                      <div style={{ color: 'var(--crimson-red)', fontWeight: 'bold', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.3rem' }}>● Partido En Vivo</div>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem' }}>
+                        <span style={{ color: 'var(--volt-lime)', fontWeight: '900', fontSize: '2.5rem', fontFamily: 'var(--font-primary)' }}>{activeEvent.matchScore.A}</span>
+                        <span style={{ color: 'var(--off-white)', fontSize: '1.2rem', fontWeight: 'bold' }}>-</span>
+                        <span style={{ color: 'var(--electric-cyan)', fontWeight: '900', fontSize: '2.5rem', fontFamily: 'var(--font-primary)' }}>{activeEvent.matchScore.B}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Balanced Teams Grid */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    {/* Team A */}
+                    {activeEvent.teamA && (
+                      <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px' }}>
+                        <h4 className="glow-text-volt" style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>EQUIPO A</h4>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {activeEvent.teamA.map(p => (
+                            <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
+                              <span>{p.avatar || '👤'}</span>
+                              <span style={{ fontWeight: 'bold' }}>{p.name}</span>
+                              <span style={{ color: 'var(--volt-lime)', fontSize: '0.7rem' }}>({p.role.substring(0,3).toUpperCase()})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Team B */}
+                    {activeEvent.teamB && (
+                      <div style={{ background: 'rgba(0,240,255,0.02)', border: '1px solid rgba(0,240,255,0.1)', padding: '1rem', borderRadius: '8px' }}>
+                        <h4 className="glow-text-cyan" style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>EQUIPO B</h4>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {activeEvent.teamB.map(p => (
+                            <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
+                              <span>{p.avatar || '👤'}</span>
+                              <span style={{ fontWeight: 'bold' }}>{p.name}</span>
+                              <span style={{ color: 'var(--electric-cyan)', fontSize: '0.7rem' }}>({p.role.substring(0,3).toUpperCase()})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', background: 'rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--volt-lime)' }}>
-              <span style={{ color: 'white', fontWeight: 'bold' }}>OVR PROYECTADO:</span>
-              <span className="glow-text-volt" style={{ fontSize: '2rem', fontWeight: '900' }}>{Math.round((regStats.pac + regStats.sho + regStats.pas + regStats.dri + regStats.def + regStats.phy)/6)}</span>
+          ) : (
+            <div className="glass-panel" style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+              <span style={{ fontSize: '3rem' }}>📅</span>
+              <h3 style={{ color: 'white', marginTop: '1rem' }}>No hay partidos programados</h3>
+              <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', margin: '0.5rem 0 0 0' }}>
+                Ponte en contacto con el administrador del club para que programe la próxima fecha.
+              </p>
             </div>
-            
-            <button type="submit" className="btn-primary" style={{ padding: '1rem', fontSize: '1.1rem', marginTop: '1rem' }}>ENVIAR FICHA AL DRAFT</button>
-          </form>
+          )}
         </div>
       )}
 

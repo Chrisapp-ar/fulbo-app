@@ -156,3 +156,48 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_host();
+
+-- ==========================================
+-- 8. NOTIFICATION TRIGGER (Notificaciones del Lobby)
+-- ==========================================
+-- Genera automáticamente una notificación en league_state.active_event cada vez que se inserta un registro en event_registrations
+CREATE OR REPLACE FUNCTION public.notify_player_joined()
+RETURNS TRIGGER AS $$
+DECLARE
+    current_event JSONB;
+    new_notification JSONB;
+    notifications_list JSONB;
+BEGIN
+    SELECT active_event INTO current_event 
+    FROM public.league_state 
+    WHERE host_id = NEW.host_id;
+    
+    IF current_event IS NOT NULL THEN
+        new_notification := jsonb_build_object(
+            'id', NEW.id,
+            'player_name', NEW.name,
+            'timestamp', NOW(),
+            'type', 'join',
+            'read', false
+        );
+        
+        IF current_event ? 'notifications' THEN
+            notifications_list := (current_event->'notifications') || jsonb_build_array(new_notification);
+        ELSE
+            notifications_list := jsonb_build_array(new_notification);
+        END IF;
+        
+        UPDATE public.league_state 
+        SET active_event = jsonb_set(current_event, '{notifications}', notifications_list),
+            updated_at = NOW()
+        WHERE host_id = NEW.host_id;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_player_registered
+    AFTER INSERT ON public.event_registrations
+    FOR EACH ROW EXECUTE FUNCTION public.notify_player_joined();
+

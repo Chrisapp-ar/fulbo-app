@@ -126,6 +126,10 @@ const Dashboard = ({ userId, onLogout }) => {
   const [playerGoals, setPlayerGoals] = useState({}); 
   const [lastMatchResult, setLastMatchResult] = useState(null);
 
+  // 10. Estados de Notificaciones e Interfaz
+  const [toastMessage, setToastMessage] = useState('');
+  const [showNotifications, setShowNotifications] = useState(false);
+
   // ==========================================
   // EFECTOS (useEffect) Y SINCRONIZACIÓN
   // ==========================================
@@ -595,7 +599,23 @@ const Dashboard = ({ userId, onLogout }) => {
               setMatchHistory(leagueData.match_history);
             }
             if (leagueData.active_event) {
-              setActiveEvent(leagueData.active_event);
+              const ae = leagueData.active_event;
+              setActiveEvent(ae);
+              if (ae.status === 'preview') {
+                setTeamA(ae.teamA || []);
+                setTeamB(ae.teamB || []);
+                setPitchCost(ae.pitchCost || '');
+                setPaymentsMap(ae.paymentsMap || {});
+                setViewMode('builder');
+              } else if (ae.status === 'match') {
+                setTeamA(ae.teamA || []);
+                setTeamB(ae.teamB || []);
+                setPitchCost(ae.pitchCost || '');
+                setPaymentsMap(ae.paymentsMap || {});
+                setMatchScore(ae.matchScore || { A: 0, B: 0 });
+                setPlayerGoals(ae.playerGoals || {});
+                setViewMode('match');
+              }
             }
           } else {
             // Auto-heal: Insert default league state since hosts is now guaranteed to exist
@@ -623,6 +643,68 @@ const Dashboard = ({ userId, onLogout }) => {
        supabase.from('league_state').update({ active_event: activeEvent, updated_at: new Date().toISOString() }).eq('host_id', hostId).then();
     }
   }, [activeEvent, hostId]);
+
+  // Sincronizar cambios locales de la vaquita con activeEvent
+  useEffect(() => {
+    if (activeEvent && (activeEvent.status === 'preview' || activeEvent.status === 'match')) {
+      if (activeEvent.pitchCost !== pitchCost || JSON.stringify(activeEvent.paymentsMap) !== JSON.stringify(paymentsMap)) {
+        setActiveEvent(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            pitchCost: pitchCost,
+            paymentsMap: paymentsMap
+          };
+        });
+      }
+    }
+  }, [pitchCost, paymentsMap]);
+
+  // Suscribirse a cambios de league_state en tiempo real (evitando loops infinitos)
+  useEffect(() => {
+    if (!hostId || !isSupabaseConfigured || !supabase) return;
+
+    const channel = supabase
+      .channel(`league_state_host_${hostId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'league_state'
+        },
+        (payload) => {
+          if (payload.new && payload.new.host_id === hostId) {
+            const nextEvent = payload.new.active_event;
+            setActiveEvent(curr => {
+              if (JSON.stringify(curr) === JSON.stringify(nextEvent)) {
+                return curr; // De-duplicar para evitar bucle
+              }
+              // Si cambia el estado en la nube a preview/match y no tenemos los equipos locales, cargarlos
+              if (nextEvent && nextEvent.status === 'preview') {
+                setTeamA(nextEvent.teamA || []);
+                setTeamB(nextEvent.teamB || []);
+                setPitchCost(nextEvent.pitchCost || '');
+                setPaymentsMap(nextEvent.paymentsMap || {});
+              } else if (nextEvent && nextEvent.status === 'match') {
+                setTeamA(nextEvent.teamA || []);
+                setTeamB(nextEvent.teamB || []);
+                setPitchCost(nextEvent.pitchCost || '');
+                setPaymentsMap(nextEvent.paymentsMap || {});
+                setMatchScore(nextEvent.matchScore || { A: 0, B: 0 });
+                setPlayerGoals(nextEvent.playerGoals || {});
+              }
+              return nextEvent;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [hostId]);
 
   useEffect(() => {
     if (activeEvent && hostId) {
@@ -662,6 +744,10 @@ const Dashboard = ({ userId, onLogout }) => {
         },
         (payload) => {
           if ((payload.new && payload.new.host_id === hostId) || (payload.old && payload.old.host_id === hostId)) {
+            if (payload.eventType === 'INSERT' && payload.new) {
+              setToastMessage(`⚽ ¡${payload.new.name} se ha unido al partido!`);
+              setTimeout(() => setToastMessage(''), 4000);
+            }
             fetchRegistrations();
           }
         }
@@ -672,6 +758,59 @@ const Dashboard = ({ userId, onLogout }) => {
       supabase.removeChannel(channel);
     };
   }, [activeEvent, hostId]);
+
+  const markNotificationsAsRead = () => {
+    if (!activeEvent || !activeEvent.notifications) return;
+    const updatedNotifications = activeEvent.notifications.map(n => ({ ...n, read: true }));
+    setActiveEvent(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        notifications: updatedNotifications
+      };
+    });
+  };
+
+  const clearNotifications = () => {
+    setActiveEvent(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        notifications: []
+      };
+    });
+  };
+
+  const cancelPreview = () => {
+    if (window.confirm('¿Cancelar armado de equipos? El partido volverá al estado de inscripción.')) {
+      setTeamA([]);
+      setTeamB([]);
+      setPitchCost('');
+      setPaymentsMap({});
+      setIsDrafting(false);
+      setActiveEvent(prev => {
+        if (!prev) return null;
+        const { teamA, teamB, pitchCost, paymentsMap, ...rest } = prev;
+        return { ...rest, status: 'lobby' };
+      });
+    }
+  };
+
+  const cancelLiveMatch = () => {
+    if (window.confirm('¿Cancelar partido en curso? No se guardará el historial ni estadísticas del partido.')) {
+      setTeamA([]);
+      setTeamB([]);
+      setPitchCost('');
+      setPaymentsMap({});
+      setIsDrafting(false);
+      setActiveEvent(prev => {
+        if (!prev) return null;
+        const { teamA, teamB, pitchCost, paymentsMap, matchScore, playerGoals, ...rest } = prev;
+        return { ...rest, status: 'lobby' };
+      });
+      setViewMode('builder');
+    }
+  };
 
   const copyLeagueLink = () => {
     if (hostId) {
@@ -838,6 +977,17 @@ const Dashboard = ({ userId, onLogout }) => {
 
       setTeamA(tA);
       setTeamB(tB);
+      setActiveEvent(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status: 'preview',
+          teamA: tA,
+          teamB: tB,
+          pitchCost: pitchCost,
+          paymentsMap: paymentsMap
+        };
+      });
 
       const allBalanced = [...tA, ...tB];
       let bestPlayer = null;
@@ -875,17 +1025,50 @@ const Dashboard = ({ userId, onLogout }) => {
     setMatchScore({ A: 0, B: 0 });
     setPlayerGoals({});
     setViewMode('match');
+    setActiveEvent(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        status: 'match',
+        matchScore: { A: 0, B: 0 },
+        playerGoals: {}
+      };
+    });
   };
 
   const addGoal = (teamId, playerId) => {
-    setMatchScore(prev => ({ ...prev, [teamId]: prev[teamId] + 1 }));
-    setPlayerGoals(prev => ({ ...prev, [playerId]: (prev[playerId] || 0) + 1 }));
+    const goalsToAdd = (playerGoals[playerId] || 0) + 1;
+    setPlayerGoals(prev => ({ ...prev, [playerId]: goalsToAdd }));
+    setMatchScore(prev => {
+      const newScore = { ...prev, [teamId]: prev[teamId] + 1 };
+      setActiveEvent(curr => {
+        if (!curr) return null;
+        return {
+          ...curr,
+          matchScore: newScore,
+          playerGoals: { ...curr.playerGoals, [playerId]: goalsToAdd }
+        };
+      });
+      return newScore;
+    });
   };
 
   const removeGoal = (teamId, playerId) => {
     if ((playerGoals[playerId] || 0) > 0) {
-      setMatchScore(prev => ({ ...prev, [teamId]: Math.max(0, prev[teamId] - 1) }));
-      setPlayerGoals(prev => ({ ...prev, [playerId]: prev[playerId] - 1 }));
+      const goalsToSub = playerGoals[playerId] - 1;
+      setPlayerGoals(prev => ({ ...prev, [playerId]: goalsToSub }));
+      setMatchScore(prev => {
+        const newScore = { ...prev, [teamId]: Math.max(0, prev[teamId] - 1) };
+        setActiveEvent(curr => {
+          if (!curr) return null;
+          return {
+            ...curr,
+            matchScore: newScore,
+            playerGoals: { ...curr.playerGoals, [playerId]: goalsToSub }
+          };
+        });
+        return newScore;
+      });
     }
   };
 
@@ -1145,6 +1328,128 @@ const Dashboard = ({ userId, onLogout }) => {
 
   // --- RENDERS ---
 
+  if (viewMode === 'active_matches') {
+    // Limpiar duplicados por nombre
+    const uniqueRegistrationsMap = {};
+    eventRegistrations.forEach(r => {
+      if (r && r.name) {
+        uniqueRegistrationsMap[r.name.toLowerCase().trim()] = r;
+      }
+    });
+    const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
+
+    return (
+      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
+        <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0 }}>PARTIDOS CREADOS</h1>
+          <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>Convocatorias activas y partidos en curso</p>
+          
+          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button className="btn-primary" onClick={() => setViewMode('builder')} style={{ width: 'auto' }}>VOLVER AL ARMADO</button>
+            <button onClick={() => setViewMode('stats')} style={btnSec}>🏆 LEADERBOARD</button>
+            <button onClick={() => setViewMode('history')} style={btnSec}>📚 HISTÓRICO</button>
+          </div>
+        </header>
+
+        {activeEvent ? (
+          <div className="glass-panel" style={{ padding: '2rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+              <div>
+                <span style={{
+                  background: activeEvent.status === 'lobby' ? 'var(--volt-lime)' : (activeEvent.status === 'preview' ? 'var(--ultimate-gold)' : 'var(--crimson-red)'),
+                  color: 'black',
+                  padding: '0.2rem 0.8rem',
+                  borderRadius: '20px',
+                  fontWeight: 'bold',
+                  fontSize: '0.8rem',
+                  textTransform: 'uppercase'
+                }}>
+                  {activeEvent.status === 'lobby' ? 'Lobby Abierto' : (activeEvent.status === 'preview' ? 'Equipos Listos' : 'En Juego ⚽')}
+                </span>
+                <h2 style={{ color: 'white', marginTop: '0.5rem', marginBottom: 0 }}>
+                  Partido del {activeEvent.date} a las {activeEvent.time}
+                </h2>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: 'var(--off-white)', fontSize: '0.8rem' }}>Formato</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--electric-cyan)' }}>
+                  {activeEvent.format} Jugadores ({activeEvent.format/2}v{activeEvent.format/2})
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+              <div>
+                <h3 style={{ color: 'var(--volt-lime)', marginBottom: '1rem' }}>Cupo y Asistencia</h3>
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                    <span style={{ color: 'var(--off-white)' }}>Confirmados:</span>
+                    <strong style={{ color: 'white' }}>{uniqueRegistrations.length} / {activeEvent.format}</strong>
+                  </div>
+                  <div style={{ width: '100%', height: '12px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', overflow: 'hidden', marginBottom: '1rem' }}>
+                    <div style={{
+                      width: `${Math.min(100, (uniqueRegistrations.length / activeEvent.format) * 100)}%`,
+                      height: '100%',
+                      background: uniqueRegistrations.length >= activeEvent.format ? 'var(--crimson-red)' : 'var(--volt-lime)',
+                      transition: 'width 0.3s'
+                    }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                    <span style={{ color: 'var(--off-white)' }}>Vacantes disponibles:</span>
+                    <strong className="glow-text-volt" style={{ color: uniqueRegistrations.length >= activeEvent.format ? 'var(--crimson-red)' : 'var(--volt-lime)' }}>
+                      {Math.max(0, activeEvent.format - uniqueRegistrations.length)}
+                    </strong>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  <button onClick={copyLeagueLink} className="btn-primary" style={{ background: 'transparent', borderColor: 'var(--electric-cyan)', color: 'var(--electric-cyan)' }}>
+                    🔗 COMPARTIR ENLACE DE INVITACIÓN
+                  </button>
+                  <button onClick={() => setViewMode('builder')} className="btn-primary">
+                    ⚙️ IR A LA ADMINISTRACIÓN DEL PARTIDO
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ color: 'var(--electric-cyan)', marginBottom: '1rem' }}>Jugadores Convocados ({uniqueRegistrations.length})</h3>
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', maxHeight: '300px', overflowY: 'auto' }}>
+                  {uniqueRegistrations.length === 0 ? (
+                    <p style={{ color: 'var(--off-white)', textAlign: 'center', margin: '2rem 0' }}>Nadie se ha registrado en el lobby aún.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                      {uniqueRegistrations.map((r, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                            <span style={{ fontSize: '1.2rem' }}>{r.avatar || '👤'}</span>
+                            <span style={{ color: 'white', fontWeight: 'bold' }}>{r.name}</span>
+                          </div>
+                          <span style={{ color: 'var(--off-white)', fontSize: '0.8rem' }}>{r.role}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="glass-panel" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
+            <span style={{ fontSize: '4rem' }}>📅</span>
+            <h2 style={{ color: 'white', marginTop: '1.5rem' }}>No hay ningún partido creado activo</h2>
+            <p style={{ color: 'var(--off-white)', maxWidth: '400px', margin: '0.5rem auto 1.5rem auto' }}>
+              Crea un evento en la pestaña de Armado para abrir la convocatoria y permitir que los jugadores se registren.
+            </p>
+            <button onClick={() => setViewMode('builder')} className="btn-primary" style={{ width: 'auto', padding: '1rem 2.5rem' }}>
+              CREAR PARTIDO AHORA
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (viewMode === 'history') {
     return (
       <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
@@ -1356,7 +1661,7 @@ const Dashboard = ({ userId, onLogout }) => {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem', gap: '2rem' }}>
-          <button onClick={() => { if(window.confirm('¿Cancelar partido? No se guardarán los stats.')) setViewMode('builder'); }} style={{ ...btnSec, borderColor: 'var(--off-white)', color: 'var(--off-white)', fontSize: '1.2rem', padding: '1rem 3rem' }}>CANCELAR</button>
+          <button onClick={cancelLiveMatch} style={{ ...btnSec, borderColor: 'var(--off-white)', color: 'var(--off-white)', fontSize: '1.2rem', padding: '1rem 3rem' }}>CANCELAR</button>
           <button onClick={finishMatch} className="btn-primary" style={{ width: 'auto', fontSize: '1.5rem', padding: '1rem 4rem' }}>FINALIZAR PARTIDO</button>
         </div>
         {renderPlayerDetailsModal()}
@@ -1541,10 +1846,89 @@ const Dashboard = ({ userId, onLogout }) => {
       )}
       <header style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
         <div className="responsive-header-actions" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', gap: '1rem' }}>
-          <div className="responsive-flex-wrap" style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <button onClick={() => setViewMode('stats')} style={btnSec}>🏆 LEADERBOARD</button>
-            <button onClick={() => setViewMode('history')} style={btnSec}>📚 HISTÓRICO</button>
+          <div className="responsive-flex-wrap" style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+            <button onClick={() => setViewMode('builder')} style={{ ...btnSec, borderColor: viewMode === 'builder' ? 'var(--volt-lime)' : 'var(--electric-cyan)', color: viewMode === 'builder' ? 'var(--volt-lime)' : 'white' }}>⚙️ ARMADO</button>
+            <button onClick={() => setViewMode('active_matches')} style={{ ...btnSec, borderColor: viewMode === 'active_matches' ? 'var(--volt-lime)' : 'var(--electric-cyan)', color: viewMode === 'active_matches' ? 'var(--volt-lime)' : 'white' }}>📅 PARTIDOS CREADOS</button>
+            <button onClick={() => setViewMode('stats')} style={{ ...btnSec, borderColor: viewMode === 'stats' ? 'var(--volt-lime)' : 'var(--electric-cyan)', color: viewMode === 'stats' ? 'var(--volt-lime)' : 'white' }}>🏆 LEADERBOARD</button>
+            <button onClick={() => setViewMode('history')} style={{ ...btnSec, borderColor: viewMode === 'history' ? 'var(--volt-lime)' : 'var(--electric-cyan)', color: viewMode === 'history' ? 'var(--volt-lime)' : 'white' }}>📚 HISTÓRICO</button>
             <button onClick={copyLeagueLink} style={{ ...btnSec, borderColor: '#00F0FF', color: '#00F0FF', boxShadow: '0 0 10px rgba(0,240,255,0.3)' }}>🔗 COMPARTIR LIGA</button>
+
+            {/* Notification Bell */}
+            {activeEvent && (
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <button 
+                  onClick={() => {
+                    setShowNotifications(!showNotifications);
+                    if (!showNotifications) markNotificationsAsRead();
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '1.5rem',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    padding: '0.3rem',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  🔔
+                  {activeEvent.notifications?.filter(n => !n.read).length > 0 && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '0',
+                      right: '0',
+                      background: 'var(--crimson-red)',
+                      color: 'white',
+                      borderRadius: '50%',
+                      padding: '0.1rem 0.4rem',
+                      fontSize: '0.65rem',
+                      fontWeight: 'bold',
+                      boxShadow: '0 0 5px rgba(255,0,85,0.5)'
+                    }}>
+                      {activeEvent.notifications.filter(n => !n.read).length}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className="glass-panel" style={{
+                    position: 'absolute',
+                    top: '40px',
+                    right: '0',
+                    width: '300px',
+                    zIndex: 10000,
+                    padding: '1rem',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                    animation: 'fadeIn 0.2s ease-out',
+                    maxHeight: '300px',
+                    overflowY: 'auto'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span style={{ fontWeight: 'bold', color: 'var(--volt-lime)', fontSize: '0.85rem' }}>Notificaciones</span>
+                      <button onClick={clearNotifications} style={{ background: 'transparent', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Limpiar</button>
+                    </div>
+                    {(!activeEvent.notifications || activeEvent.notifications.length === 0) ? (
+                      <p style={{ color: 'var(--off-white)', fontSize: '0.8rem', textAlign: 'center', margin: '1rem 0' }}>No tienes notificaciones.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {activeEvent.notifications.slice().reverse().map((n, i) => (
+                          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', padding: '0.5rem', background: n.read ? 'rgba(255,255,255,0.02)' : 'rgba(204,255,0,0.05)', borderRadius: '4px', borderLeft: n.read ? 'none' : '3px solid var(--volt-lime)' }}>
+                            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                              ⚽ {n.player_name} se unió al partido.
+                            </span>
+                            <span style={{ color: 'var(--off-white)', fontSize: '0.65rem' }}>
+                              {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <button onClick={onLogout} style={{ background: 'transparent', border: '1px solid var(--crimson-red)', color: 'var(--crimson-red)', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontFamily: 'var(--font-primary)' }}>CERRAR SESIÓN</button>
         </div>
@@ -1575,7 +1959,7 @@ const Dashboard = ({ userId, onLogout }) => {
                      <option value={18} disabled style={{ color: 'rgba(255,255,255,0.2)' }}>Fulbo 9 (18 Jug) - Máx 15 Jug. en Plan</option>
                      <option value={22} disabled style={{ color: 'rgba(255,255,255,0.2)' }}>Fulbo 11 (22 Jug) - Máx 15 Jug. en Plan</option>
                   </select>
-                  <button onClick={() => setActiveEvent({ date: eventDate, time: eventTime, format: eventFormat })} className="btn-primary" style={{ padding: '0.5rem 1.5rem', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0, fontSize: '1rem' }}>CREAR EVENTO</button>
+                  <button onClick={() => setActiveEvent({ date: eventDate, time: eventTime, format: eventFormat, status: 'lobby', notifications: [] })} className="btn-primary" style={{ padding: '0.5rem 1.5rem', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0, fontSize: '1rem' }}>CREAR EVENTO</button>
                </div>
             ) : (
                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -1799,13 +2183,32 @@ const Dashboard = ({ userId, onLogout }) => {
               <div className="match-action-buttons">
                 <button onClick={shareTeamsWA} className="btn-primary" style={{ background: '#25D366', color: 'white', borderColor: '#25D366', boxShadow: '0 0 10px rgba(37,211,102,0.3)' }}>WHATSAPP 📱</button>
                 <button onClick={startMatch} className="btn-primary" style={{ background: 'var(--pitch-black)', color: 'var(--ultimate-gold)', borderColor: 'var(--ultimate-gold)', boxShadow: '0 0 20px rgba(255,215,0,0.2)' }}>INICIAR PARTIDO ⚡</button>
-                <button onClick={() => { setTeamA([]); setTeamB([]); setPitchCost(''); setPaymentsMap({}); setIsDrafting(false); }} style={{ ...btnSec, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)' }}>CANCELAR</button>
+                <button onClick={cancelPreview} style={{ ...btnSec, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)' }}>CANCELAR</button>
               </div>
               )}
             </>
           )}
           {renderPlayerDetailsModal()}
           {renderMpConfigModal()}
+          {toastMessage && (
+            <div style={{
+              position: 'fixed',
+              top: '20px',
+              right: '20px',
+              background: 'var(--pitch-black)',
+              border: '2px solid var(--volt-lime)',
+              boxShadow: '0 0 15px rgba(204,255,0,0.4)',
+              color: 'white',
+              padding: '1rem 1.5rem',
+              borderRadius: '8px',
+              zIndex: 11000,
+              fontFamily: 'var(--font-primary)',
+              fontWeight: 'bold',
+              animation: 'fadeIn 0.3s ease-out'
+            }}>
+              {toastMessage}
+            </div>
+          )}
         </main>
       </div>
     </div>
