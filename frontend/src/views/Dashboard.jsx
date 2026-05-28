@@ -104,6 +104,7 @@ const Dashboard = ({ userId, onLogout }) => {
   const [eventTime, setEventTime] = useState('20:00');
   const [eventRegistrations, setEventRegistrations] = useState([]);
   const [hostId, setHostId] = useState(userId || null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // 6. Estados del Formulario de Jugadores
   const [name, setName] = useState('');
@@ -627,6 +628,7 @@ const Dashboard = ({ userId, onLogout }) => {
               updated_at: new Date().toISOString()
             });
           }
+          setInitialLoadDone(true);
         } catch (err) {
           console.error("Error fetching or initializing league state:", err);
         }
@@ -639,10 +641,10 @@ const Dashboard = ({ userId, onLogout }) => {
   }, [userId]);
 
   useEffect(() => {
-    if (isSupabaseConfigured && supabase && hostId) {
+    if (initialLoadDone && isSupabaseConfigured && supabase && hostId) {
        supabase.from('league_state').update({ active_event: activeEvent, updated_at: new Date().toISOString() }).eq('host_id', hostId).then();
     }
-  }, [activeEvent, hostId]);
+  }, [activeEvent, hostId, initialLoadDone]);
 
   // Sincronizar cambios locales de la vaquita con activeEvent
   useEffect(() => {
@@ -901,6 +903,12 @@ const Dashboard = ({ userId, onLogout }) => {
         eventRegistrations.forEach(r => { if (r && r.name) { uniqueMap[r.name.toLowerCase().trim()] = r; } });
         const finalRegs = Object.values(uniqueMap).slice(0, activeEvent?.format || 100);
 
+        if (finalRegs.length < 8) {
+          alert("No se puede armar equipos con menos de 8 jugadores inscriptos.");
+          setIsLoading(false);
+          return;
+        }
+
         pool = finalRegs.map(reg => {
           const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
           return {
@@ -1016,6 +1024,12 @@ const Dashboard = ({ userId, onLogout }) => {
         const uniqueMap = {};
         eventRegistrations.forEach(r => { if (r && r.name) { uniqueMap[r.name.toLowerCase().trim()] = r; } });
         const finalRegs = Object.values(uniqueMap).slice(0, activeEvent?.format || 100);
+
+        if (finalRegs.length < 8) {
+          alert("No se puede armar equipos con menos de 8 jugadores inscriptos.");
+          setIsLoading(false);
+          return;
+        }
 
         pool = finalRegs.map(reg => {
           const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
@@ -1207,6 +1221,32 @@ const Dashboard = ({ userId, onLogout }) => {
       setWalkoutRevealStage(0);
       setViewMode('builder');
     }, 600);
+  };
+
+  const movePlayerToTeam = (player, targetTeam) => {
+    let newA = [...teamA];
+    let newB = [...teamB];
+    
+    if (targetTeam === 'A') {
+      if (newA.some(x => x.id === player.id)) return;
+      newB = newB.filter(x => x.id !== player.id);
+      newA.push(player);
+    } else {
+      if (newB.some(x => x.id === player.id)) return;
+      newA = newA.filter(x => x.id !== player.id);
+      newB.push(player);
+    }
+    
+    setTeamA(newA);
+    setTeamB(newB);
+    setActiveEvent(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        teamA: newA,
+        teamB: newB
+      };
+    });
   };
 
   useEffect(() => {
@@ -1609,11 +1649,30 @@ const Dashboard = ({ userId, onLogout }) => {
                     <button 
                       onClick={() => balanceTeamsRandomlyByRole(true)} 
                       className="btn-primary" 
-                      disabled={isLoading || uniqueRegistrations.length < 2}
+                      disabled={isLoading || uniqueRegistrations.length < 8}
                       style={{ background: 'linear-gradient(135deg, var(--ultimate-gold) 0%, #FFA500 100%)', color: 'black', fontWeight: 'bold', border: 'none' }}
                     >
                       🎲 ARMAR EQUIPOS ALEATORIOS POR ROL
                     </button>
+                  )}
+                  {activeEvent.status === 'preview' && (
+                    <>
+                      <button 
+                        onClick={() => balanceTeamsRandomlyByRole(true)} 
+                        className="btn-primary" 
+                        disabled={isLoading || uniqueRegistrations.length < 8}
+                        style={{ background: 'linear-gradient(135deg, var(--ultimate-gold) 0%, #FFA500 100%)', color: 'black', fontWeight: 'bold', border: 'none' }}
+                      >
+                        🎲 RE-ARMAR ALEATORIO
+                      </button>
+                      <button 
+                        onClick={() => balanceTeamsLocally(true)} 
+                        className="btn-primary" 
+                        disabled={isLoading || uniqueRegistrations.length < 8}
+                      >
+                        🔄 RE-ARMAR POR ROL
+                      </button>
+                    </>
                   )}
                   <button onClick={copyLeagueLink} className="btn-primary" style={{ background: 'transparent', borderColor: 'var(--electric-cyan)', color: 'var(--electric-cyan)' }}>
                     🔗 COMPARTIR ENLACE DE INVITACIÓN
@@ -1625,24 +1684,73 @@ const Dashboard = ({ userId, onLogout }) => {
               </div>
 
               <div>
-                <h3 style={{ color: 'var(--electric-cyan)', marginBottom: '1rem' }}>Jugadores Convocados ({uniqueRegistrations.length})</h3>
-                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', maxHeight: '300px', overflowY: 'auto' }}>
-                  {uniqueRegistrations.length === 0 ? (
-                    <p style={{ color: 'var(--off-white)', textAlign: 'center', margin: '2rem 0' }}>Nadie se ha registrado en el lobby aún.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                      {uniqueRegistrations.map((r, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                            <span style={{ fontSize: '1.2rem' }}>{r.avatar || '👤'}</span>
-                            <span style={{ color: 'white', fontWeight: 'bold' }}>{r.name}</span>
-                          </div>
-                          <span style={{ color: 'var(--off-white)', fontSize: '0.8rem' }}>{r.role}</span>
+                {activeEvent.status === 'lobby' ? (
+                  <>
+                    <h3 style={{ color: 'var(--electric-cyan)', marginBottom: '1rem' }}>Jugadores Convocados ({uniqueRegistrations.length})</h3>
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', maxHeight: '300px', overflowY: 'auto' }}>
+                      {uniqueRegistrations.length === 0 ? (
+                        <p style={{ color: 'var(--off-white)', textAlign: 'center', margin: '2rem 0' }}>Nadie se ha registrado en el lobby aún.</p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                          {uniqueRegistrations.map((r, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                <span style={{ fontSize: '1.2rem' }}>{r.avatar || '👤'}</span>
+                                <span style={{ color: 'white', fontWeight: 'bold' }}>{r.name}</span>
+                              </div>
+                              <span style={{ color: 'var(--off-white)', fontSize: '0.8rem' }}>{r.role}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 style={{ color: 'var(--electric-cyan)', marginBottom: '1rem' }}>Equipos Armados</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {/* Team A */}
+                      <div style={{ background: 'rgba(204,255,0,0.03)', border: '1px solid rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px' }}>
+                        <h4 className="glow-text-volt" style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', fontWeight: 'bold' }}>EQUIPO A (OVR: {getTeamRating(teamA)})</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {teamA.map(p => (
+                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '0.4rem 0.8rem', borderRadius: '6px' }}>
+                              <span style={{ fontSize: '0.85rem', color: 'white' }}>{p.avatar || '👤'} {p.name} <span style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>({p.role.substring(0,3).toUpperCase()})</span></span>
+                              {activeEvent.status === 'preview' && (
+                                <button 
+                                  onClick={() => movePlayerToTeam(p, 'B')} 
+                                  style={{ background: 'transparent', border: 'none', color: 'var(--volt-lime)', cursor: 'pointer', fontSize: '0.85rem' }}
+                                >
+                                  Mover a B ➔
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Team B */}
+                      <div style={{ background: 'rgba(0,240,255,0.03)', border: '1px solid rgba(0,240,255,0.1)', padding: '1rem', borderRadius: '8px' }}>
+                        <h4 className="glow-text-cyan" style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', fontWeight: 'bold' }}>EQUIPO B (OVR: {getTeamRating(teamB)})</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {teamB.map(p => (
+                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '0.4rem 0.8rem', borderRadius: '6px' }}>
+                              <span style={{ fontSize: '0.85rem', color: 'white' }}>{p.avatar || '👤'} {p.name} <span style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>({p.role.substring(0,3).toUpperCase()})</span></span>
+                              {activeEvent.status === 'preview' && (
+                                <button 
+                                  onClick={() => movePlayerToTeam(p, 'A')} 
+                                  style={{ background: 'transparent', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '0.85rem' }}
+                                >
+                                  &larr; Mover a A
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -2203,12 +2311,12 @@ const Dashboard = ({ userId, onLogout }) => {
                      <button 
                         onClick={() => balanceTeamsRandomlyByRole(true)} 
                         className="btn-primary" 
-                        disabled={isLoading || uniqueRegistrations.length < 2} 
+                        disabled={isLoading || uniqueRegistrations.length < 8} 
                         style={{ padding: '0.5rem 2rem', background: 'linear-gradient(135deg, var(--ultimate-gold) 0%, #FFA500 100%)', color: 'black', border: 'none' }}
                      >
                         🎲 ARMAR EQUIPOS ALEATORIOS
                      </button>
-                     <button onClick={() => balanceTeamsLocally(true)} className="btn-primary" disabled={isLoading || uniqueRegistrations.length < 2} style={{ padding: '0.5rem 2rem' }}>ADMITIR Y ARMAR EQUIPOS</button>
+                     <button onClick={() => balanceTeamsLocally(true)} className="btn-primary" disabled={isLoading || uniqueRegistrations.length < 8} style={{ padding: '0.5rem 2rem' }}>ADMITIR Y ARMAR EQUIPOS</button>
                   </div>
                </div>
                <p style={{ color: 'var(--electric-cyan)', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'right' }}>*Cupos disponibles: {Math.max(0, activeEvent.format - uniqueRegistrations.length)}</p>
@@ -2323,8 +2431,19 @@ const Dashboard = ({ userId, onLogout }) => {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
                     {teamA.slice(0, Math.ceil(revealedCount / 2)).map(p => (
-                      <div key={p.id} onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
-                        <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} />
+                      <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                        <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
+                          <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} />
+                        </div>
+                        {!isDrafting && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); movePlayerToTeam(p, 'B'); }}
+                            className="btn-primary"
+                            style={{ padding: '0.3rem 0.8rem', fontSize: '0.75rem', width: 'auto', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--volt-lime)', cursor: 'pointer' }}
+                          >
+                            Pasar a B ➔
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2344,8 +2463,19 @@ const Dashboard = ({ userId, onLogout }) => {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
                     {teamB.slice(0, Math.floor(revealedCount / 2)).map(p => (
-                      <div key={p.id} onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
-                        <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} />
+                      <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                        <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
+                          <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} />
+                        </div>
+                        {!isDrafting && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); movePlayerToTeam(p, 'A'); }}
+                            className="btn-primary"
+                            style={{ padding: '0.3rem 0.8rem', fontSize: '0.75rem', width: 'auto', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--electric-cyan)', cursor: 'pointer' }}
+                          >
+                            &larr; Pasar a A
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2402,6 +2532,19 @@ const Dashboard = ({ userId, onLogout }) => {
               {!isDrafting && (
               <div className="match-action-buttons">
                 <button onClick={shareTeamsWA} className="btn-primary" style={{ background: '#25D366', color: 'white', borderColor: '#25D366', boxShadow: '0 0 10px rgba(37,211,102,0.3)' }}>WHATSAPP 📱</button>
+                <button 
+                  onClick={() => balanceTeamsRandomlyByRole(true)} 
+                  className="btn-primary" 
+                  style={{ background: 'linear-gradient(135deg, var(--ultimate-gold) 0%, #FFA500 100%)', color: 'black', border: 'none' }}
+                >
+                  🎲 RE-ARMAR ALEATORIO
+                </button>
+                <button 
+                  onClick={() => balanceTeamsLocally(true)} 
+                  className="btn-primary"
+                >
+                  🔄 RE-ARMAR POR ROL
+                </button>
                 <button onClick={startMatch} className="btn-primary" style={{ background: 'var(--pitch-black)', color: 'var(--ultimate-gold)', borderColor: 'var(--ultimate-gold)', boxShadow: '0 0 20px rgba(255,215,0,0.2)' }}>INICIAR PARTIDO ⚡</button>
                 <button onClick={cancelPreview} style={{ ...btnSec, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)' }}>CANCELAR</button>
               </div>
