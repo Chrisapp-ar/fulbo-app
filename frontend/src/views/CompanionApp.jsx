@@ -28,10 +28,14 @@ const getPlayerBadges = (p) => {
   return list;
 };
 
-const CompanionApp = ({ leagueId }) => {
+const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [roster, setRoster] = useState([]);
+  const [matchHistory, setMatchHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  
+  // Tabs navigation
+  const [activeTab, setActiveTab] = useState('leaderboard'); // 'leaderboard' | 'history'
   
   // Subscription state
   const [subscriptionStatus, setSubscriptionStatus] = useState('active');
@@ -40,13 +44,19 @@ const CompanionApp = ({ leagueId }) => {
   
   const [activeEvent, setActiveEvent] = useState(null);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [regName, setRegName] = useState('');
+  const [regName, setRegName] = useState(currentUser?.user_metadata?.full_name || '');
   const [regRole, setRegRole] = useState('Mediocampo');
   const [regStats, setRegStats] = useState({ pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
   const [regSuccess, setRegSuccess] = useState(false);
   const [leagueExists, setLeagueExists] = useState(false);
   const [regAvatar, setRegAvatar] = useState('👤');
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState(false);
+
+  useEffect(() => {
+    if (currentUser?.user_metadata?.full_name && !regName) {
+      setRegName(currentUser.user_metadata.full_name);
+    }
+  }, [currentUser]);
   
   const handleRegSubmit = async (e) => {
     e.preventDefault();
@@ -75,6 +85,7 @@ const CompanionApp = ({ leagueId }) => {
       // 3. Proceed with registration
       const { error } = await supabase.from('event_registrations').insert({
         host_id: leagueId,
+        player_id: currentUser?.id || null,
         name: regName.trim(),
         role: regRole,
         stats: regStats,
@@ -129,8 +140,9 @@ const CompanionApp = ({ leagueId }) => {
   const processLeagueData = (data) => {
     if (data) {
       setLeagueExists(true);
+      const matches = data.match_history || [];
+      setMatchHistory(matches);
       if (Array.isArray(data.roster)) {
-        const matches = data.match_history || [];
         const migratedRoster = data.roster.map(p => {
           if (!p.history) return p;
           if (p.history.pe !== undefined && p.history.pp !== undefined) return p;
@@ -415,8 +427,40 @@ const CompanionApp = ({ leagueId }) => {
     );
   }
 
+  const isEventExpired = (event) => {
+    if (!event) return true;
+    const eventDateObj = new Date(event.date + 'T23:59:59');
+    const dayAfterEvent = new Date(eventDateObj.getTime() + 24 * 60 * 60 * 1000);
+    return new Date() > dayAfterEvent;
+  };
+
+  const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id));
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '2rem 1rem', fontFamily: 'var(--font-secondary)' }}>
+      {/* Cerrar Sesión */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem', maxWidth: '600px', margin: '0 auto 1.5rem auto' }}>
+        <button 
+          onClick={onLogout} 
+          style={{ 
+            background: 'transparent', 
+            border: '1px solid var(--crimson-red)', 
+            color: 'var(--crimson-red)', 
+            padding: '0.4rem 1.2rem', 
+            borderRadius: '4px', 
+            cursor: 'pointer', 
+            fontSize: '0.8rem',
+            fontFamily: 'var(--font-primary)',
+            fontWeight: 'bold',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => { e.target.style.background = 'var(--crimson-red)'; e.target.style.color = 'white'; }}
+          onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = 'var(--crimson-red)'; }}
+        >
+          CERRAR SESIÓN
+        </button>
+      </div>
+
       {paymentSuccessMsg && (
         <div style={{
           background: 'rgba(37,211,102,0.1)',
@@ -456,27 +500,100 @@ const CompanionApp = ({ leagueId }) => {
           </div>
           <span style={{ color: 'var(--electric-cyan)', fontSize: '0.65rem', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 'bold' }}>THE ELITE MATCHMAKING ENGINE</span>
         </div>
-        <h2 style={{ color: 'var(--ultimate-gold)', fontSize: '1.2rem', margin: 0, letterSpacing: '2px', marginTop: '1rem' }}>LEADERBOARD</h2>
-        <p style={{ color: 'var(--off-white)', fontSize: '0.8rem', marginTop: '0.2rem' }}>Toca tu nombre para ver tu Player Card</p>
       </header>
 
-      {activeEvent && !isRegistering && !regSuccess && (
-        <div style={{ background: 'var(--volt-lime)', color: 'black', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', textAlign: 'center', boxShadow: '0 0 20px rgba(204,255,0,0.4)', animation: 'pulse 2s infinite' }}>
+      {/* Mi Ficha Táctica Destacada */}
+      {myPlayerCard && (
+        <div 
+          onClick={() => setSelectedPlayer(myPlayerCard)}
+          className="glass-panel" 
+          style={{ 
+            maxWidth: '600px', 
+            margin: '0 auto 2rem auto', 
+            padding: '1.2rem', 
+            border: '1px solid var(--ultimate-gold)', 
+            background: 'rgba(255, 215, 0, 0.05)', 
+            cursor: 'pointer', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            borderRadius: '12px',
+            boxShadow: '0 0 15px rgba(255,215,0,0.15)',
+            transition: 'transform 0.2s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ fontSize: '2rem' }}>🏆</span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ color: 'var(--ultimate-gold)', fontWeight: 'bold', fontSize: '1rem', letterSpacing: '1px', fontFamily: 'var(--font-primary)' }}>MI FICHA TÁCTICA</div>
+              <div style={{ color: 'white', fontSize: '0.85rem' }}>Ver mi carta, rating {Math.round(myPlayerCard.glicko?.rating || 1500)} MMR e historial personal</div>
+            </div>
+          </div>
+          <span style={{ color: 'var(--ultimate-gold)', fontSize: '1.5rem' }}>➔</span>
+        </div>
+      )}
+
+      {/* Selector de Pestañas */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
+        <button 
+          onClick={() => setActiveTab('leaderboard')}
+          style={{
+            flex: 1,
+            background: activeTab === 'leaderboard' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
+            color: activeTab === 'leaderboard' ? 'black' : 'white',
+            border: 'none',
+            padding: '0.8rem',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            fontFamily: 'var(--font-primary)',
+            fontSize: '0.85rem',
+            transition: 'all 0.2s',
+            borderBottom: activeTab === 'leaderboard' ? '3px solid var(--electric-cyan)' : 'none'
+          }}
+        >
+          🏆 POSICIONES (MMR)
+        </button>
+        <button 
+          onClick={() => setActiveTab('history')}
+          style={{
+            flex: 1,
+            background: activeTab === 'history' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
+            color: activeTab === 'history' ? 'black' : 'white',
+            border: 'none',
+            padding: '0.8rem',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            fontFamily: 'var(--font-primary)',
+            fontSize: '0.85rem',
+            transition: 'all 0.2s',
+            borderBottom: activeTab === 'history' ? '3px solid var(--electric-cyan)' : 'none'
+          }}
+        >
+          📚 PARTIDOS JUGADOS
+        </button>
+      </div>
+
+      {activeEvent && !isEventExpired(activeEvent) && !isRegistering && !regSuccess && (
+        <div style={{ background: 'var(--volt-lime)', color: 'black', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', textAlign: 'center', boxShadow: '0 0 20px rgba(204,255,0,0.4)', animation: 'pulse 2s infinite', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
           <h3 style={{ margin: '0 0 0.5rem 0', fontWeight: '900', fontSize: '1.5rem', fontStyle: 'italic' }}>⚡ MATCH DAY ⚡</h3>
           <p style={{ margin: '0 0 1rem 0', fontWeight: 'bold' }}>{activeEvent.date} a las {activeEvent.time} | Formato: {activeEvent.format} Jugadores</p>
           <button onClick={() => setIsRegistering(true)} style={{ background: 'black', color: 'var(--volt-lime)', border: 'none', padding: '1rem 2rem', fontSize: '1.2rem', fontWeight: '900', borderRadius: '30px', cursor: 'pointer', width: '100%', fontFamily: 'var(--font-primary)' }}>INSCRIBIRSE AHORA</button>
         </div>
       )}
 
-      {activeEvent && regSuccess && (
-        <div style={{ background: 'rgba(37,211,102,0.1)', border: '2px solid #25D366', color: '#25D366', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', textAlign: 'center' }}>
+      {activeEvent && !isEventExpired(activeEvent) && regSuccess && (
+        <div style={{ background: 'rgba(37,211,102,0.1)', border: '2px solid #25D366', color: '#25D366', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', textAlign: 'center', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
           <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>¡INSCRITO! ✅</h3>
           <p style={{ margin: 0, fontSize: '0.9rem' }}>Tus stats temporales han sido enviadas. Espera a que el Organizador inicie el Draft En Vivo.</p>
         </div>
       )}
 
       {isRegistering && (
-        <div style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid var(--electric-cyan)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem' }}>
+        <div style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid var(--electric-cyan)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ color: 'var(--electric-cyan)', margin: 0 }}>FICHA TÉCNICA</h3>
             <button onClick={() => setIsRegistering(false)} style={{ background: 'none', border: 'none', color: 'var(--off-white)', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
@@ -542,44 +659,89 @@ const CompanionApp = ({ leagueId }) => {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxWidth: '600px', margin: '0 auto' }}>
-        {roster.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚽</div>
-            <p style={{ margin: 0, fontSize: '0.9rem' }}>Aún no hay jugadores registrados en esta liga.</p>
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--electric-cyan)', fontWeight: 'bold' }}>Inscríbete arriba si hay un partido programado.</p>
-          </div>
-        ) : (
-          roster.map((p, i) => {
-            const pj = p.history?.pj || 0;
-            const pg = p.history?.pg || 0;
-            const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
-            const mmr = Math.round(p.glicko?.rating || 1500);
-            
-            return (
-              <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{ color: i < 3 ? 'var(--ultimate-gold)' : 'var(--off-white)', fontWeight: 'bold', fontSize: '1.2rem', width: '20px' }}>{i + 1}</span>
-                  <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                    {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
+      {activeTab === 'leaderboard' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxWidth: '600px', margin: '0 auto' }}>
+          {roster.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚽</div>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>Aún no hay jugadores registrados en esta liga.</p>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--electric-cyan)', fontWeight: 'bold' }}>Inscríbete arriba si hay un partido programado.</p>
+            </div>
+          ) : (
+            roster.map((p, i) => {
+              const pj = p.history?.pj || 0;
+              const pg = p.history?.pg || 0;
+              const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
+              const mmr = Math.round(p.glicko?.rating || 1500);
+              
+              return (
+                <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ color: i < 3 ? 'var(--ultimate-gold)' : 'var(--off-white)', fontWeight: 'bold', fontSize: '1.2rem', width: '20px' }}>{i + 1}</span>
+                    <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                      {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
+                    </div>
+                    <div>
+                      <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{p.name}</div>
+                      <div style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>
+                        {p.role} | {pj} PJ ({pg}G / {p.history?.pe || 0}E / {p.history?.pp || 0}P)
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{p.name}</div>
-                    <div style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>
-                      {p.role} | {pj} PJ ({pg}G / {p.history?.pe || 0}E / {p.history?.pp || 0}P)
+                  
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="glow-text-volt" style={{ fontSize: '1.3rem', fontWeight: '900' }}>{mmr}</div>
+                    <div style={{ color: 'var(--electric-cyan)', fontSize: '0.75rem', fontWeight: 'bold' }}>{winRate}% WR</div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '600px', margin: '0 auto' }}>
+          {matchHistory.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📚</div>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>No hay partidos disputados registrados aún.</p>
+            </div>
+          ) : (
+            matchHistory.map((match, idx) => {
+              const dateStr = new Date(match.date).toLocaleDateString() + ' ' + new Date(match.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+              return (
+                <div key={match.id} className="glass-panel" style={{ padding: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', borderLeft: match.winner === 'A' ? '4px solid var(--volt-lime)' : (match.winner === 'B' ? '4px solid var(--electric-cyan)' : '4px solid gray') }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--off-white)', fontSize: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.4rem' }}>
+                    <span>Partido #{matchHistory.length - idx}</span>
+                    <span>{dateStr}</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1, textAlign: 'right', paddingRight: '0.5rem' }}>
+                      <h4 style={{ margin: 0, color: 'var(--volt-lime)', fontSize: '0.95rem', fontWeight: 'bold' }}>Equipo A</h4>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--off-white)', marginTop: '0.2rem' }}>
+                        {match.teamA.map(p => p.name).join(', ')}
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0 0.5rem' }}>
+                      <span style={{ fontSize: '1.6rem', fontWeight: '900', color: match.winner === 'A' ? 'var(--volt-lime)' : 'white' }}>{match.matchScore.A}</span>
+                      <span style={{ color: 'var(--off-white)', fontSize: '0.8rem' }}>-</span>
+                      <span style={{ fontSize: '1.6rem', fontWeight: '900', color: match.winner === 'B' ? 'var(--electric-cyan)' : 'white' }}>{match.matchScore.B}</span>
+                    </div>
+
+                    <div style={{ flex: 1, textAlign: 'left', paddingLeft: '0.5rem' }}>
+                      <h4 style={{ margin: 0, color: 'var(--electric-cyan)', fontSize: '0.95rem', fontWeight: 'bold' }}>Equipo B</h4>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--off-white)', marginTop: '0.2rem' }}>
+                        {match.teamB.map(p => p.name).join(', ')}
+                      </div>
                     </div>
                   </div>
                 </div>
-                
-                <div style={{ textAlign: 'right' }}>
-                  <div className="glow-text-volt" style={{ fontSize: '1.3rem', fontWeight: '900' }}>{mmr}</div>
-                  <div style={{ color: 'var(--electric-cyan)', fontSize: '0.75rem', fontWeight: 'bold' }}>{winRate}% WR</div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 };

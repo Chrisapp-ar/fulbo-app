@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 
-const Login = ({ onLogin }) => {
+const Login = ({ isGuest = false, onLogin }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,13 +51,43 @@ const Login = ({ onLogin }) => {
     }
 
     if (!orgName.trim()) {
-      setErrorMsg('Por favor, ingresa el nombre de tu club o liga.');
+      setErrorMsg(isGuest ? 'Por favor, ingresa tu nombre completo.' : 'Por favor, ingresa el nombre de tu club o liga.');
       return;
     }
 
     setLoading(true);
+
+    if (isGuest) {
+      // 1. SignUp Guest User
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: orgName.trim()
+          }
+        }
+      });
+
+      if (signUpError) {
+        setErrorMsg(signUpError.message);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Log in Guest User
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setErrorMsg(signInError.message);
+        setLoading(false);
+      } else {
+        setLoading(false);
+        onLogin();
+      }
+      return;
+    }
     
-    // 1. SignUp in Supabase Auth
+    // 1. SignUp Host in Supabase Auth
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password
@@ -192,7 +222,10 @@ const Login = ({ onLogin }) => {
         )}
         
         <div style={{ color: 'var(--off-white)', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '1.5rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
-          {isRegistering ? 'Registro de Club / Liga' : 'Cloud Security Gateway'}
+          {isRegistering 
+            ? (isGuest ? 'Registro de Jugador' : 'Registro de Club / Liga') 
+            : (isGuest ? 'Acceso de Jugador' : 'Cloud Security Gateway')
+          }
         </div>
         
         {errorMsg && (
@@ -204,14 +237,14 @@ const Login = ({ onLogin }) => {
         <form onSubmit={isRegistering ? handleRegisterSubmit : handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
           {isRegistering && (
             <div style={{ textAlign: 'left' }}>
-              <label style={labelStyle}>Nombre de tu Club / Liga</label>
-              <input type="text" placeholder="Ej: Liga Intercountries" style={inputStyle} value={orgName} onChange={e => setOrgName(e.target.value)} required />
+              <label style={labelStyle}>{isGuest ? 'Tu Nombre completo' : 'Nombre de tu Club / Liga'}</label>
+              <input type="text" placeholder={isGuest ? 'Ej: Lionel Messi' : 'Ej: Liga Intercountries'} style={inputStyle} value={orgName} onChange={e => setOrgName(e.target.value)} required />
             </div>
           )}
 
           <div style={{ textAlign: 'left' }}>
-            <label style={labelStyle}>Email del Organizador (Host)</label>
-            <input type="email" placeholder="host@fulbo.com" style={inputStyle} value={email} onChange={e => setEmail(e.target.value)} required />
+            <label style={labelStyle}>{isGuest ? 'Email del Jugador' : 'Email del Organizador (Host)'}</label>
+            <input type="email" placeholder="jugador@email.com" style={inputStyle} value={email} onChange={e => setEmail(e.target.value)} required />
           </div>
 
           <div style={{ textAlign: 'left' }}>
@@ -219,7 +252,7 @@ const Login = ({ onLogin }) => {
             <input type="password" placeholder="******" style={inputStyle} value={password} onChange={e => setPassword(e.target.value)} required />
           </div>
 
-          {isRegistering && (
+          {isRegistering && !isGuest && (
             <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
               <label style={labelStyle}>Selecciona tu Plan</label>
               <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.4rem' }}>
@@ -276,15 +309,19 @@ const Login = ({ onLogin }) => {
             disabled={loading} 
             style={{ 
               marginTop: '0.5rem', 
-              borderColor: isRegistering ? (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)') : 'var(--electric-cyan)', 
-              color: isRegistering ? (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)') : 'var(--electric-cyan)' 
+              borderColor: isRegistering 
+                ? (isGuest ? 'var(--volt-lime)' : (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)')) 
+                : 'var(--electric-cyan)', 
+              color: isRegistering 
+                ? (isGuest ? 'var(--volt-lime)' : (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)')) 
+                : 'var(--electric-cyan)' 
             }}
           >
             {loading 
               ? 'PROCESANDO...' 
               : (isRegistering 
-                  ? (plan === 'trial' ? 'INICIAR PRUEBA GRATIS ⚡' : 'PAGAR E INICIALIZAR 💳') 
-                  : 'INITIALIZE MATCHMAKING')
+                  ? (isGuest ? 'REGISTRARSE Y ENTRAR ⚡' : (plan === 'trial' ? 'INICIAR PRUEBA GRATIS ⚡' : 'PAGAR E INICIALIZAR 💳')) 
+                  : (isGuest ? 'INGRESAR A LA LIGA ⚽' : 'INITIALIZE MATCHMAKING'))
             }
           </button>
         </form>
@@ -304,7 +341,10 @@ const Login = ({ onLogin }) => {
               textTransform: 'uppercase'
             }}
           >
-            {isRegistering ? '¿Ya tienes una liga? Inicia Sesión' : '¿No tienes cuenta? Regístrate'}
+            {isRegistering 
+              ? (isGuest ? '¿Ya tienes cuenta de jugador? Inicia Sesión' : '¿Ya tienes una liga? Inicia Sesión') 
+              : (isGuest ? '¿No tienes cuenta de jugador? Regístrate' : '¿No tienes cuenta? Regístrate')
+            }
           </button>
         </div>
       </div>

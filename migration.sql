@@ -43,3 +43,7 @@ GRANT SELECT (mercadopago_access_token) ON public.hosts TO authenticated;
 -- 4. Permitir lectura pública de registros de eventos para que la app de invitado verifique el límite de 15 jugadores
 CREATE POLICY "Allow public read access to event registrations" ON public.event_registrations FOR SELECT USING (true);
 
+-- 5. Agregar columna de player_id en event_registrations para vincular al usuario de Supabase Auth
+ALTER TABLE public.event_registrations ADD COLUMN IF NOT EXISTS player_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+

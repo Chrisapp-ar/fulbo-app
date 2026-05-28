@@ -625,6 +625,22 @@ const Dashboard = ({ userId, onLogout }) => {
   }, [activeEvent, hostId]);
 
   useEffect(() => {
+    if (activeEvent && hostId) {
+      const eventDateObj = new Date(activeEvent.date + 'T23:59:59');
+      const dayAfterEvent = new Date(eventDateObj.getTime() + 24 * 60 * 60 * 1000);
+      if (new Date() > dayAfterEvent) {
+        // Auto-delete / archive expired event (day after the event has passed)
+        setActiveEvent(null);
+        setEventRegistrations([]);
+        if (isSupabaseConfigured && supabase) {
+          supabase.from('league_state').update({ active_event: null, updated_at: new Date().toISOString() }).eq('host_id', hostId).then();
+          supabase.from('event_registrations').delete().eq('host_id', hostId).then();
+        }
+      }
+    }
+  }, [activeEvent, hostId]);
+
+  useEffect(() => {
     if (!activeEvent || !isSupabaseConfigured || !supabase || !hostId) return;
 
     // Obtener registros iniciales
@@ -749,12 +765,13 @@ const Dashboard = ({ userId, onLogout }) => {
         pool = finalRegs.map(reg => {
           const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
           return {
-            id: existingPlayer ? existingPlayer.id : reg.id,
+            id: existingPlayer ? existingPlayer.id : (reg.player_id || reg.id),
+            player_id: reg.player_id || (existingPlayer ? existingPlayer.player_id : null),
             name: reg.name,
             role: reg.role,
             avatar: reg.avatar || (existingPlayer ? existingPlayer.avatar : '👤'),
             stats: reg.stats, 
-            history: existingPlayer ? existingPlayer.history : { pj: 0, pg: 0, goals: 0 },
+            history: existingPlayer ? existingPlayer.history : { pj: 0, pg: 0, pe: 0, pp: 0, goals: 0 },
             glicko: existingPlayer ? existingPlayer.glicko : { rating: 1500, rd: 350, vol: 0.06 },
             financial: existingPlayer ? existingPlayer.financial : { debt: 0, isBanned: false },
             condition: existingPlayer ? existingPlayer.condition : { stamina: 100 }
@@ -942,6 +959,7 @@ const Dashboard = ({ userId, onLogout }) => {
           const prevHistory = ep.glicko?.history || [1500];
           updatedRoster[existingIndex] = {
              ...ep,
+             player_id: matchPlayer.player_id || ep.player_id || null,
              history: { 
                  pj: (ep.history?.pj || 0) + 1, 
                  pg: (ep.history?.pg || 0) + (winnerMatches ? 1 : 0), 

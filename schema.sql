@@ -119,6 +119,7 @@ CREATE POLICY "Public can read league state" ON league_state
 CREATE TABLE event_registrations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     host_id UUID NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+    player_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     name VARCHAR(100) NOT NULL,
     role VARCHAR(50) NOT NULL,
     stats JSONB NOT NULL,
