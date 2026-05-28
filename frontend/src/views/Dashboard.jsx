@@ -1007,6 +1007,208 @@ const Dashboard = ({ userId, onLogout }) => {
     }, 600);
   };
 
+  const balanceTeamsRandomlyByRole = (useLobby = true) => {
+    setIsLoading(true);
+    setTimeout(() => {
+      let pool = [];
+      if (useLobby) {
+        // Limpiar duplicados por nombre
+        const uniqueMap = {};
+        eventRegistrations.forEach(r => { if (r && r.name) { uniqueMap[r.name.toLowerCase().trim()] = r; } });
+        const finalRegs = Object.values(uniqueMap).slice(0, activeEvent?.format || 100);
+
+        pool = finalRegs.map(reg => {
+          const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
+          return {
+            id: existingPlayer ? existingPlayer.id : (reg.player_id || reg.id),
+            player_id: reg.player_id || (existingPlayer ? existingPlayer.player_id : null),
+            name: reg.name,
+            role: reg.role,
+            avatar: reg.avatar || (existingPlayer ? existingPlayer.avatar : '👤'),
+            stats: reg.stats, 
+            history: existingPlayer ? existingPlayer.history : { pj: 0, pg: 0, pe: 0, pp: 0, goals: 0 },
+            glicko: existingPlayer ? existingPlayer.glicko : { rating: 1500, rd: 350, vol: 0.06 },
+            financial: existingPlayer ? existingPlayer.financial : { debt: 0, isBanned: false },
+            condition: existingPlayer ? existingPlayer.condition : { stamina: 100 }
+          };
+        });
+      } else {
+        pool = roster;
+      }
+      
+      const mapRole = (r) => {
+         if (r === 'Ancla') return 'Defensor';
+         if (r === 'Creativo') return 'Mediocampo';
+         if (r === 'Finalizador') return 'Delantero';
+         if (r === 'Capitán') return 'Mediocampo';
+         return r;
+      };
+      
+      const tA = [];
+      const tB = [];
+      let sumA = 0;
+      let sumB = 0;
+      
+      const activePool = pool.filter(p => p && !p.financial?.isBanned);
+      
+      const grouped = {
+        Arquero: [],
+        Defensor: [],
+        Mediocampo: [],
+        Delantero: []
+      };
+      
+      activePool.forEach(p => {
+        const r = mapRole(p.role);
+        if (grouped[r]) grouped[r].push(p);
+        else grouped.Mediocampo.push(p);
+      });
+      
+      Object.keys(grouped).forEach(r => {
+        grouped[r].sort((a, b) => calcHybridScore(b) - calcHybridScore(a));
+      });
+      
+      const rolesOrder = ['Arquero', 'Defensor', 'Mediocampo', 'Delantero'];
+      
+      rolesOrder.forEach(r => {
+        const players = grouped[r];
+        // Procesar en parejas con valoraciones generales OVR similares
+        for (let i = 0; i < players.length; i += 2) {
+          if (i + 1 < players.length) {
+            const p1 = players[i];
+            const p2 = players[i+1];
+            const score1 = calcHybridScore(p1);
+            const score2 = calcHybridScore(p2);
+            
+            const diffSize = tA.length - tB.length;
+            const p1ToA = Math.random() < 0.5;
+            
+            if (diffSize === 0) {
+              if (p1ToA) {
+                tA.push(p1);
+                tB.push(p2);
+                sumA += score1;
+                sumB += score2;
+              } else {
+                tA.push(p2);
+                tB.push(p1);
+                sumA += score2;
+                sumB += score1;
+              }
+            } else if (diffSize < 0) {
+              // tA tiene menos jugadores. Buscamos equilibrar la suma MMR/OVR
+              const diffX = Math.abs((sumA + score1) - (sumB + score2));
+              const diffY = Math.abs((sumA + score2) - (sumB + score1));
+              
+              if (diffX < diffY) {
+                tA.push(p1);
+                tB.push(p2);
+                sumA += score1;
+                sumB += score2;
+              } else if (diffY < diffX) {
+                tA.push(p2);
+                tB.push(p1);
+                sumA += score2;
+                sumB += score1;
+              } else {
+                if (p1ToA) {
+                  tA.push(p1);
+                  tB.push(p2);
+                  sumA += score1;
+                  sumB += score2;
+                } else {
+                  tA.push(p2);
+                  tB.push(p1);
+                  sumA += score2;
+                  sumB += score1;
+                }
+              }
+            } else {
+              // tB tiene menos jugadores
+              const diffX = Math.abs((sumA + score2) - (sumB + score1));
+              const diffY = Math.abs((sumA + score1) - (sumB + score2));
+              
+              if (diffX < diffY) {
+                tB.push(p1);
+                tA.push(p2);
+                sumB += score1;
+                sumA += score2;
+              } else if (diffY < diffX) {
+                tB.push(p2);
+                tA.push(p1);
+                sumB += score2;
+                sumA += score1;
+              } else {
+                if (p1ToA) {
+                  tB.push(p1);
+                  tA.push(p2);
+                  sumB += score1;
+                  sumA += score2;
+                } else {
+                  tB.push(p2);
+                  tA.push(p1);
+                  sumB += score2;
+                  sumA += score1;
+                }
+              }
+            }
+          } else {
+            // Jugador impar
+            const p = players[i];
+            const score = calcHybridScore(p);
+            const diffSize = tA.length - tB.length;
+            if (diffSize === 0) {
+              if (sumA <= sumB) {
+                tA.push(p);
+                sumA += score;
+              } else {
+                tB.push(p);
+                sumB += score;
+              }
+            } else if (diffSize < 0) {
+              tA.push(p);
+              sumA += score;
+            } else {
+              tB.push(p);
+              sumB += score;
+            }
+          }
+        }
+      });
+      
+      setTeamA(tA);
+      setTeamB(tB);
+      setActiveEvent(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status: 'preview',
+          teamA: tA,
+          teamB: tB,
+          pitchCost: pitchCost,
+          paymentsMap: paymentsMap
+        };
+      });
+      
+      const allBalanced = [...tA, ...tB];
+      let bestPlayer = null;
+      let highestOvr = -1;
+      allBalanced.forEach(p => {
+        const ovr = calcOvr(p);
+        if (ovr > highestOvr) {
+          highestOvr = ovr;
+          bestPlayer = p;
+        }
+      });
+      setWalkoutPlayer(bestPlayer);
+      
+      setIsLoading(false);
+      setShowPackOpening(true);
+      setWalkoutRevealStage(0);
+      setViewMode('builder');
+    }, 600);
+  };
+
   useEffect(() => {
     if (isDrafting) {
       const totalPlayers = teamA.length + teamB.length;
@@ -1403,6 +1605,16 @@ const Dashboard = ({ userId, onLogout }) => {
                 </div>
 
                 <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  {activeEvent.status === 'lobby' && (
+                    <button 
+                      onClick={() => balanceTeamsRandomlyByRole(true)} 
+                      className="btn-primary" 
+                      disabled={isLoading || uniqueRegistrations.length < 2}
+                      style={{ background: 'linear-gradient(135deg, var(--ultimate-gold) 0%, #FFA500 100%)', color: 'black', fontWeight: 'bold', border: 'none' }}
+                    >
+                      🎲 ARMAR EQUIPOS ALEATORIOS POR ROL
+                    </button>
+                  )}
                   <button onClick={copyLeagueLink} className="btn-primary" style={{ background: 'transparent', borderColor: 'var(--electric-cyan)', color: 'var(--electric-cyan)' }}>
                     🔗 COMPARTIR ENLACE DE INVITACIÓN
                   </button>
@@ -1988,6 +2200,14 @@ const Dashboard = ({ userId, onLogout }) => {
                         const text = `🔥 *MATCH DAY CREADO* 🔥\n\n📅 Fecha: ${activeEvent.date}\n⏰ Hora: ${activeEvent.time}\n⚽ Formato: Fulbo ${activeEvent.format/2} (${activeEvent.format} Jugadores)\n\n👉 *Inscríbete y arma tu Carta aquí:* ${window.location.origin}/?league=${hostId}`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                      }} style={{ ...btnSec, borderColor: '#25D366', color: '#25D366', boxShadow: '0 0 10px rgba(37,211,102,0.3)', padding: '0.5rem 1rem' }}>COMPARTIR 📱</button>
+                     <button 
+                        onClick={() => balanceTeamsRandomlyByRole(true)} 
+                        className="btn-primary" 
+                        disabled={isLoading || uniqueRegistrations.length < 2} 
+                        style={{ padding: '0.5rem 2rem', background: 'linear-gradient(135deg, var(--ultimate-gold) 0%, #FFA500 100%)', color: 'black', border: 'none' }}
+                     >
+                        🎲 ARMAR EQUIPOS ALEATORIOS
+                     </button>
                      <button onClick={() => balanceTeamsLocally(true)} className="btn-primary" disabled={isLoading || uniqueRegistrations.length < 2} style={{ padding: '0.5rem 2rem' }}>ADMITIR Y ARMAR EQUIPOS</button>
                   </div>
                </div>
