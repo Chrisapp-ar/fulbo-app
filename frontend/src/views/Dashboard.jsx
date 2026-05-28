@@ -45,7 +45,7 @@ const getPlayerBadges = (p) => {
   return list;
 };
 
-const Dashboard = ({ onLogout }) => {
+const Dashboard = ({ userId, onLogout }) => {
   // ==========================================
   // ESTADOS DE REACT (Todos agrupados al inicio para evitar Temporal Dead Zone y ReferenceErrors)
   // ==========================================
@@ -103,7 +103,7 @@ const Dashboard = ({ onLogout }) => {
   const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
   const [eventTime, setEventTime] = useState('20:00');
   const [eventRegistrations, setEventRegistrations] = useState([]);
-  const [hostId, setHostId] = useState(null);
+  const [hostId, setHostId] = useState(userId || null);
 
   // 6. Estados del Formulario de Jugadores
   const [name, setName] = useState('');
@@ -556,26 +556,42 @@ const Dashboard = ({ onLogout }) => {
 
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
-       supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) {
-            setHostId(user.id);
-            // Fetch subscription details
-            supabase.from('hosts').select('subscription_type, subscription_status, subscription_ends_at').eq('id', user.id).then(({ data, error }) => {
-              if (data && data.length > 0) {
-                setSubscriptionType(data[0].subscription_type || 'trial');
-                setSubscriptionStatus(data[0].subscription_status || 'active');
-                setSubscriptionEndsAt(data[0].subscription_ends_at || '');
-              }
-              setSubscriptionChecking(false);
-            }).catch(() => setSubscriptionChecking(false));
-          } else {
-            setSubscriptionChecking(false);
+      const initDashboard = async () => {
+        let currentHostId = hostId;
+        if (!currentHostId) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              currentHostId = user.id;
+              setHostId(user.id);
+            }
+          } catch (err) {
+            console.error("Error fetching user session:", err);
           }
-       }).catch(() => setSubscriptionChecking(false));
+        }
+
+        if (currentHostId) {
+          try {
+            const { data } = await supabase
+              .from('hosts')
+              .select('subscription_type, subscription_status, subscription_ends_at')
+              .eq('id', currentHostId);
+            if (data && data.length > 0) {
+              setSubscriptionType(data[0].subscription_type || 'trial');
+              setSubscriptionStatus(data[0].subscription_status || 'active');
+              setSubscriptionEndsAt(data[0].subscription_ends_at || '');
+            }
+          } catch (err) {
+            console.error("Error fetching host subscription:", err);
+          }
+        }
+        setSubscriptionChecking(false);
+      };
+      initDashboard();
     } else {
       setSubscriptionChecking(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (isSupabaseConfigured && supabase && hostId) {

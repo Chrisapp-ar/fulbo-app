@@ -32,11 +32,15 @@ const App = () => {
   return (
     <>
       {isAuthenticated ? (
-        <Dashboard onLogout={() => {
-           if (isSupabaseConfigured && supabase) supabase.auth.signOut();
-           else setIsAuthenticated(false);
-        }} />
+        <Dashboard 
+          userId={session?.user?.id}
+          onLogout={() => {
+             if (isSupabaseConfigured && supabase) supabase.auth.signOut();
+             else setIsAuthenticated(false);
+          }} 
+        />
       ) : (
+
         <Login onLogin={() => setIsAuthenticated(true)} />
       )}
     </>

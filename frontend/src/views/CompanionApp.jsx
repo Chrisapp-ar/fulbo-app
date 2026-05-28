@@ -184,25 +184,42 @@ const CompanionApp = ({ leagueId }) => {
   };
 
   useEffect(() => {
-    if (isSupabaseConfigured && supabase && leagueId) {
+    const isInvalidId = !leagueId || leagueId === 'null' || leagueId === 'undefined';
+    if (isSupabaseConfigured && supabase && !isInvalidId) {
       const fetchLeague = async () => {
         try {
           // Fetch host's subscription details
-          const { data: hostData } = await supabase.from('hosts').select('subscription_status, subscription_ends_at').eq('id', leagueId);
+          const { data: hostData, error: hostError } = await supabase
+            .from('hosts')
+            .select('subscription_status, subscription_ends_at')
+            .eq('id', leagueId);
+          
+          if (hostError) {
+            console.error("Error fetching host subscription from Supabase:", hostError);
+          }
+
           if (hostData && hostData.length > 0) {
             setSubscriptionStatus(hostData[0].subscription_status || 'active');
             setSubscriptionEndsAt(hostData[0].subscription_ends_at || '');
           }
           setSubscriptionChecking(false);
 
-          const { data, error } = await supabase.from('league_state').select('*').eq('host_id', leagueId);
+          const { data, error: stateError } = await supabase
+            .from('league_state')
+            .select('*')
+            .eq('host_id', leagueId);
+
+          if (stateError) {
+            console.error("Error fetching league state from Supabase:", stateError);
+          }
+
           if (data && data.length > 0) {
             processLeagueData(data[0]);
           } else {
             processLeagueData(null);
           }
         } catch (err) {
-          console.error("Error fetching league state:", err);
+          console.error("Exception fetching league state:", err);
           processLeagueData(null);
           setSubscriptionChecking(false);
         }
@@ -233,6 +250,8 @@ const CompanionApp = ({ leagueId }) => {
         supabase.removeChannel(channel);
       };
     } else {
+      processLeagueData(null);
+      setSubscriptionChecking(false);
       setLoading(false);
     }
   }, [leagueId]);

@@ -33,6 +33,19 @@ CREATE TABLE hosts (
 -- Habilitar Row Level Security para que un Host no vea datos de otro
 ALTER TABLE hosts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Hosts can manage their own data" ON hosts FOR ALL USING (auth.uid() = id);
+CREATE POLICY "Allow public read access to hosts" ON hosts FOR SELECT USING (true);
+
+-- Revocar lectura por defecto de hosts a roles generales para proteger datos sensibles como mercadopago_access_token
+REVOKE SELECT ON public.hosts FROM public;
+REVOKE SELECT ON public.hosts FROM anon;
+REVOKE SELECT ON public.hosts FROM authenticated;
+
+-- Otorgar SELECT solo en las columnas seguras y públicas
+GRANT SELECT (id, email, organization_name, subscription_type, subscription_status, subscription_ends_at, mercadopago_user_id, created_at) ON public.hosts TO public;
+GRANT SELECT (id, email, organization_name, subscription_type, subscription_status, subscription_ends_at, mercadopago_user_id, created_at) ON public.hosts TO anon;
+GRANT SELECT (id, email, organization_name, subscription_type, subscription_status, subscription_ends_at, mercadopago_user_id, created_at) ON public.hosts TO authenticated;
+GRANT SELECT (mercadopago_access_token) ON public.hosts TO authenticated;
+
 
 -- ==========================================
 -- 2. PLAYERS (Roster Comunitario)
@@ -118,6 +131,9 @@ CREATE POLICY "Public can insert event registrations" ON event_registrations
     FOR INSERT WITH CHECK (true);
 CREATE POLICY "Hosts can fully manage their event registrations" ON event_registrations
     FOR ALL USING (auth.uid() = host_id);
+CREATE POLICY "Allow public read access to event registrations" ON event_registrations
+    FOR SELECT USING (true);
+
 
 -- ==========================================
 -- 7. AUTH TRIGGER (Auto-registro de Hosts)
