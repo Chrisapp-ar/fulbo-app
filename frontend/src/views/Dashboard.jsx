@@ -152,35 +152,7 @@ const Dashboard = ({ userId, onLogout }) => {
     }
   }, [matchHistory]);
 
-  useEffect(() => {
-    if (isSupabaseConfigured && supabase) {
-      const loadCloudState = async () => {
-         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-            const { data, error } = await supabase.from('league_state').select('*').eq('host_id', user.id);
-            if (data && data.length > 0) {
-               const leagueData = data[0];
-               if (Array.isArray(leagueData.roster) && leagueData.roster.length > 0) setRoster(leagueData.roster);
-               if (Array.isArray(leagueData.match_history) && leagueData.match_history.length > 0) setMatchHistory(leagueData.match_history);
-               if (leagueData.active_event) setActiveEvent(leagueData.active_event);
-            } else {
-               // Inicialización segura si no existe la fila
-               await supabase.from('league_state').insert({
-                  host_id: user.id,
-                  roster: roster,
-                  match_history: matchHistory,
-                  active_event: null,
-                  updated_at: new Date().toISOString()
-               });
-            }
-         } catch (err) {
-            console.error("Error loading cloud state:", err);
-         }
-      };
-      loadCloudState();
-    }
-  }, []);
+  // Cloud state loading is now merged sequentially inside the main initDashboard useEffect to avoid race conditions.
 
   useEffect(() => {
     if (!roster || roster.length === 0) return;
@@ -558,35 +530,88 @@ const Dashboard = ({ userId, onLogout }) => {
     if (isSupabaseConfigured && supabase) {
       const initDashboard = async () => {
         let currentHostId = hostId;
-        if (!currentHostId) {
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              currentHostId = user.id;
-              setHostId(user.id);
-            }
-          } catch (err) {
-            console.error("Error fetching user session:", err);
+        let activeUser = null;
+        
+        // 1. Get the current authenticated user
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          activeUser = user;
+          if (user) {
+            currentHostId = user.id;
+            setHostId(user.id);
           }
+        } catch (err) {
+          console.error("Error fetching user session:", err);
         }
 
-        if (currentHostId) {
-          try {
-            const { data } = await supabase
-              .from('hosts')
-              .select('subscription_type, subscription_status, subscription_ends_at')
-              .eq('id', currentHostId);
-            if (data && data.length > 0) {
-              setSubscriptionType(data[0].subscription_type || 'trial');
-              setSubscriptionStatus(data[0].subscription_status || 'active');
-              setSubscriptionEndsAt(data[0].subscription_ends_at || '');
-            }
-          } catch (err) {
-            console.error("Error fetching host subscription:", err);
+        if (!activeUser) {
+          setSubscriptionChecking(false);
+          return;
+        }
+
+        // 2. Fetch or self-heal host details
+        try {
+          const { data: hostData } = await supabase
+            .from('hosts')
+            .select('subscription_type, subscription_status, subscription_ends_at')
+            .eq('id', currentHostId);
+          
+          if (hostData && hostData.length > 0) {
+            setSubscriptionType(hostData[0].subscription_type || 'trial');
+            setSubscriptionStatus(hostData[0].subscription_status || 'active');
+            setSubscriptionEndsAt(hostData[0].subscription_ends_at || '');
+          } else {
+            // Auto-heal: Insert host details if they are missing (e.g. trigger failed to execute)
+            const defaultEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+            await supabase.from('hosts').insert({
+              id: currentHostId,
+              email: activeUser.email || 'host@demo.com',
+              subscription_type: 'trial',
+              subscription_status: 'active',
+              subscription_ends_at: defaultEndsAt
+            });
+            setSubscriptionType('trial');
+            setSubscriptionStatus('active');
+            setSubscriptionEndsAt(defaultEndsAt);
           }
+        } catch (err) {
+          console.error("Error fetching host subscription:", err);
         }
         setSubscriptionChecking(false);
+
+        // 3. Fetch or self-heal league_state (only AFTER hosts is guaranteed to exist!)
+        try {
+          const { data: stateData } = await supabase
+            .from('league_state')
+            .select('*')
+            .eq('host_id', currentHostId);
+          
+          if (stateData && stateData.length > 0) {
+            const leagueData = stateData[0];
+            if (Array.isArray(leagueData.roster) && leagueData.roster.length > 0) {
+              setRoster(leagueData.roster);
+            }
+            if (Array.isArray(leagueData.match_history) && leagueData.match_history.length > 0) {
+              setMatchHistory(leagueData.match_history);
+            }
+            if (leagueData.active_event) {
+              setActiveEvent(leagueData.active_event);
+            }
+          } else {
+            // Auto-heal: Insert default league state since hosts is now guaranteed to exist
+            await supabase.from('league_state').insert({
+              host_id: currentHostId,
+              roster: roster,
+              match_history: matchHistory,
+              active_event: null,
+              updated_at: new Date().toISOString()
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching or initializing league state:", err);
+        }
       };
+      
       initDashboard();
     } else {
       setSubscriptionChecking(false);
