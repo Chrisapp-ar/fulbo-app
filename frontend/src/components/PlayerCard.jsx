@@ -8,7 +8,7 @@ const BADGE_ICONS = {
   fairplay: { icon: '🪙', label: 'Fair Play', color: 'var(--ultimate-gold)', glow: 'rgba(255,215,0,0.5)', desc: 'Finanzas Impecables (Sin deudas)' }
 };
 
-const PlayerCard = ({ name = "JUGADOR", position = "MC", stats = { pac: 80, sho: 75, pas: 80, dri: 85, def: 60, phy: 70 }, avatar, ovr, stamina = 100, badges = [] }) => {
+const PlayerCard = ({ name = "JUGADOR", position = "MC", stats = { pac: 80, sho: 75, pas: 80, dri: 85, def: 60, phy: 70 }, avatar, ovr, stamina = 100, badges = [], isInjured = false }) => {
   const displayOvr = ovr !== undefined ? ovr : Math.round((stats.pac + stats.sho + stats.pas + stats.dri + stats.def + stats.phy) / 6);
 
   return (
@@ -37,6 +37,27 @@ const PlayerCard = ({ name = "JUGADOR", position = "MC", stats = { pac: 80, sho:
       e.currentTarget.style.boxShadow = 'inset 0 0 25px rgba(255,215,0,0.15)';
     }}
     >
+      {isInjured && (
+        <div style={{
+          position: 'absolute',
+          right: '8px',
+          top: '30px',
+          background: 'rgba(255, 0, 85, 0.95)',
+          border: '1px solid var(--crimson-red)',
+          borderRadius: '50%',
+          width: '20px',
+          height: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '0.85rem',
+          boxShadow: '0 0 8px rgba(255, 0, 85, 0.8)',
+          zIndex: 6
+        }} title="LESIONADO / EN HOSPITAL">
+          🤕
+        </div>
+      )}
+
       {/* PlayStyles / Badges column */}
       {Array.isArray(badges) && badges.length > 0 && (
         <div style={{

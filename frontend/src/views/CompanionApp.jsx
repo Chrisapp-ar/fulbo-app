@@ -36,6 +36,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   
   // Tabs navigation
   const [activeTab, setActiveTab] = useState('leaderboard'); // 'leaderboard' | 'history'
+  const [leaderboardFilter, setLeaderboardFilter] = useState('active');
   
   // Subscription state
   const [subscriptionStatus, setSubscriptionStatus] = useState('active');
@@ -78,6 +79,14 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       const uniqueNames = new Set((currentRegs || []).map(r => r.name.toLowerCase().trim()));
       
       const currentNameClean = regName.toLowerCase().trim();
+      
+      // Check if player is injured (in Hospital)
+      const matchingPlayer = roster.find(p => p.name && p.name.toLowerCase().trim() === currentNameClean);
+      if (matchingPlayer && matchingPlayer.condition?.isResting) {
+        alert("🤕 No puedes inscribirte en este partido porque estás en la lista de lesionados (Hospital).");
+        return;
+      }
+
       if (uniqueNames.size >= 15 && !uniqueNames.has(currentNameClean)) {
         alert("Límite de invitación alcanzado. No hay más vacantes para este partido (Máximo 15 invitados por cuenta).");
         return;
@@ -146,7 +155,29 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       if (Array.isArray(data.roster)) {
         const migratedRoster = data.roster.map(p => {
           if (!p.history) return p;
-          if (p.history.pe !== undefined && p.history.pp !== undefined) return p;
+
+          let lastMatchDate = p.lastMatchDate;
+          if ((p.history.pj || 0) > 0 && !lastMatchDate) {
+            const matchesWithPlayer = matches.filter(match => {
+              const inA = match.teamA?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
+              const inB = match.teamB?.some(m => m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase()));
+              return inA || inB;
+            });
+            if (matchesWithPlayer.length > 0) {
+              const latest = matchesWithPlayer.reduce((latestMatch, currentMatch) => {
+                const latestTime = new Date(latestMatch.eventDate || latestMatch.date || 0).getTime();
+                const currentTime = new Date(currentMatch.eventDate || currentMatch.date || 0).getTime();
+                return currentTime > latestTime ? currentMatch : latestMatch;
+              }, matchesWithPlayer[0]);
+              lastMatchDate = latest.eventDate || latest.date || new Date().toISOString();
+            } else {
+              lastMatchDate = new Date().toISOString();
+            }
+          }
+
+          if (p.history.pe !== undefined && p.history.pp !== undefined) {
+            return { ...p, lastMatchDate };
+          }
           
           let pe = 0;
           let pp = 0;
@@ -178,6 +209,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           
           return {
             ...p,
+            lastMatchDate,
             history: { ...p.history, pe, pp }
           };
         });
@@ -374,6 +406,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                ovr={Math.round(Math.round((selectedPlayer.stats.pac + selectedPlayer.stats.sho + selectedPlayer.stats.pas + selectedPlayer.stats.dri + selectedPlayer.stats.def + selectedPlayer.stats.phy) / 6) * (0.5 + 0.5 * ((selectedPlayer.condition?.stamina ?? 100) / 100)))} 
                stamina={selectedPlayer.condition?.stamina ?? 100} 
                badges={getPlayerBadges(selectedPlayer)}
+               isInjured={selectedPlayer.condition?.isResting}
             />
           </div>
 
@@ -578,20 +611,20 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       )}
 
       {/* Selector de Pestañas */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem auto', flexWrap: 'wrap' }}>
         <button 
           onClick={() => setActiveTab('leaderboard')}
           style={{
-            flex: 1,
+            flex: '1 1 45%',
             background: activeTab === 'leaderboard' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
             color: activeTab === 'leaderboard' ? 'black' : 'white',
             border: 'none',
-            padding: '0.8rem',
+            padding: '0.6rem 0.4rem',
             borderRadius: '8px',
             cursor: 'pointer',
             fontWeight: 'bold',
             fontFamily: 'var(--font-primary)',
-            fontSize: '0.85rem',
+            fontSize: '0.8rem',
             transition: 'all 0.2s',
             borderBottom: activeTab === 'leaderboard' ? '3px solid var(--electric-cyan)' : 'none'
           }}
@@ -601,16 +634,16 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         <button 
           onClick={() => setActiveTab('active_matches')}
           style={{
-            flex: 1,
+            flex: '1 1 45%',
             background: activeTab === 'active_matches' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
             color: activeTab === 'active_matches' ? 'black' : 'white',
             border: 'none',
-            padding: '0.8rem',
+            padding: '0.6rem 0.4rem',
             borderRadius: '8px',
             cursor: 'pointer',
             fontWeight: 'bold',
             fontFamily: 'var(--font-primary)',
-            fontSize: '0.85rem',
+            fontSize: '0.8rem',
             transition: 'all 0.2s',
             borderBottom: activeTab === 'active_matches' ? '3px solid var(--electric-cyan)' : 'none'
           }}
@@ -620,21 +653,40 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         <button 
           onClick={() => setActiveTab('history')}
           style={{
-            flex: 1,
+            flex: '1 1 45%',
             background: activeTab === 'history' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
             color: activeTab === 'history' ? 'black' : 'white',
             border: 'none',
-            padding: '0.8rem',
+            padding: '0.6rem 0.4rem',
             borderRadius: '8px',
             cursor: 'pointer',
             fontWeight: 'bold',
             fontFamily: 'var(--font-primary)',
-            fontSize: '0.85rem',
+            fontSize: '0.8rem',
             transition: 'all 0.2s',
             borderBottom: activeTab === 'history' ? '3px solid var(--electric-cyan)' : 'none'
           }}
         >
-          📚 PARTIDOS JUGADOS
+          📚 HISTÓRICO
+        </button>
+        <button 
+          onClick={() => setActiveTab('hospital')}
+          style={{
+            flex: '1 1 45%',
+            background: activeTab === 'hospital' ? 'linear-gradient(135deg, #FF3B30 0%, #8b0000 100%)' : 'rgba(255,255,255,0.05)',
+            color: 'white',
+            border: 'none',
+            padding: '0.6rem 0.4rem',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            fontFamily: 'var(--font-primary)',
+            fontSize: '0.8rem',
+            transition: 'all 0.2s',
+            borderBottom: activeTab === 'hospital' ? '3px solid var(--crimson-red)' : 'none'
+          }}
+        >
+          🏥 HOSPITAL
         </button>
       </div>
 
@@ -733,6 +785,11 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                               
                               <form onSubmit={handleRegSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                                 <input type="text" placeholder="Tu Nombre (Ej: Messi)" value={regName} onChange={(e) => setRegName(e.target.value)} required className="input-field" />
+                                {roster.some(p => p.name && p.name.toLowerCase().trim() === regName.toLowerCase().trim() && p.condition?.isResting) && (
+                                  <div style={{ color: 'var(--crimson-red)', fontSize: '0.8rem', fontWeight: 'bold', animation: 'pulse 1s infinite', marginTop: '-0.3rem' }}>
+                                    ⚠️ Jugador lesionado. No puedes inscribirte.
+                                  </div>
+                                )}
                                 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.2rem' }}>
                                   <span style={{ fontSize: '0.75rem', color: 'var(--off-white)', fontWeight: 'bold' }}>POSICIÓN EN LA CANCHA</span>
@@ -887,16 +944,64 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         </div>
       )}
 
-      {activeTab === 'leaderboard' ? (
+      {activeTab === 'leaderboard' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxWidth: '600px', margin: '0 auto' }}>
-          {roster.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚽</div>
-              <p style={{ margin: 0, fontSize: '0.9rem' }}>Aún no hay jugadores registrados en esta liga.</p>
-              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--electric-cyan)', fontWeight: 'bold' }}>Inscríbete arriba si hay un partido programado.</p>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '30px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <button 
+                onClick={() => setLeaderboardFilter('active')} 
+                style={{ 
+                  background: leaderboardFilter === 'active' ? 'linear-gradient(135deg, var(--volt-lime) 0%, #128C7E 100%)' : 'transparent', 
+                  color: leaderboardFilter === 'active' ? 'black' : 'var(--off-white)',
+                  border: 'none',
+                  borderRadius: '25px',
+                  padding: '0.5rem 1.2rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s'
+                }}
+              >
+                🏃 ACTIVOS
+              </button>
+              <button 
+                onClick={() => setLeaderboardFilter('inactive')} 
+                style={{ 
+                  background: leaderboardFilter === 'inactive' ? 'linear-gradient(135deg, var(--crimson-red) 0%, #8b0000 100%)' : 'transparent', 
+                  color: leaderboardFilter === 'inactive' ? 'white' : 'var(--off-white)',
+                  border: 'none',
+                  borderRadius: '25px',
+                  padding: '0.5rem 1.2rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s'
+                }}
+              >
+                💤 INACTIVOS
+              </button>
             </div>
-          ) : (
-            roster.map((p, i) => {
+          </div>
+
+          {(() => {
+            const playedPlayers = roster.filter(p => (p.history?.pj || 0) > 0);
+            const filteredRoster = playedPlayers.filter(p => {
+              const lastTime = p.lastMatchDate ? new Date(p.lastMatchDate).getTime() : Date.now();
+              const isActive = (Date.now() - lastTime) < 30 * 24 * 60 * 60 * 1000;
+              return leaderboardFilter === 'active' ? isActive : !isActive;
+            });
+            const sortedRoster = [...filteredRoster].sort((a, b) => (b.glicko?.rating || 1500) - (a.glicko?.rating || 1500));
+
+            if (sortedRoster.length === 0) {
+              return (
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚽</div>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}>No hay jugadores en esta categoría.</p>
+                </div>
+              );
+            }
+
+            return sortedRoster.map((p, idx) => {
               const pj = p.history?.pj || 0;
               const pg = p.history?.pg || 0;
               const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
@@ -905,7 +1010,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
               return (
                 <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span style={{ color: i < 3 ? 'var(--ultimate-gold)' : 'var(--off-white)', fontWeight: 'bold', fontSize: '1.2rem', width: '20px' }}>{i + 1}</span>
+                    <span style={{ color: idx < 3 ? 'var(--ultimate-gold)' : 'var(--off-white)', fontWeight: 'bold', fontSize: '1.2rem', width: '20px' }}>{idx + 1}</span>
                     <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                       {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
                     </div>
@@ -923,10 +1028,12 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                   </div>
                 </div>
               );
-            })
-          )}
+            });
+          })()}
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'history' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '600px', margin: '0 auto' }}>
           {matchHistory.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
@@ -967,6 +1074,46 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                 </div>
               );
             })
+          )}
+        </div>
+      )}
+
+      {activeTab === 'hospital' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
+          <div className="glass-panel" style={{ border: '1px solid rgba(255, 59, 48, 0.3)', padding: '1.2rem', background: 'rgba(255, 59, 48, 0.02)', display: 'flex', alignItems: 'center', gap: '0.8rem', borderRadius: '8px' }}>
+            <span style={{ fontSize: '1.8rem' }}>🏥</span>
+            <div>
+              <h4 style={{ margin: 0, color: '#FF3B30', fontSize: '0.9rem', fontWeight: 'bold' }}>JUGADORES LESIONADOS</h4>
+              <p style={{ margin: '0.1rem 0 0 0', fontSize: '0.75rem', color: 'var(--off-white)' }}>Jugadores inactivos temporalmente por baja médica.</p>
+            </div>
+          </div>
+          {roster.filter(p => p.condition?.isResting).length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>💚</div>
+              <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>¡Sin lesionados en el club!</p>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--off-white)' }}>Todos los jugadores están sanos y listos para jugar.</p>
+            </div>
+          ) : (
+            roster.filter(p => p.condition?.isResting).map((p) => (
+              <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(255, 59, 48, 0.05)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255, 59, 48, 0.2)', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ fontSize: '1.2rem' }}>🤕</span>
+                  <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(255,59,48,0.3)' }}>
+                    {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
+                  </div>
+                  <div>
+                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{p.name}</div>
+                    <div style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>
+                      {p.role} | Stamina: <span style={{ color: '#FF3B30', fontWeight: 'bold' }}>{p.condition?.stamina ?? 50}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="glow-text-volt" style={{ fontSize: '1.1rem', fontWeight: '900', color: '#FF3B30', textShadow: '0 0 10px rgba(255,59,48,0.4)' }}>EN CLÍNICA</div>
+                  <div style={{ color: 'var(--off-white)', fontSize: '0.7rem' }}>En recuperación</div>
+                </div>
+              </div>
+            ))
           )}
         </div>
       )}

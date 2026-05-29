@@ -130,6 +130,7 @@ const Dashboard = ({ userId, onLogout }) => {
   // 10. Estados de Notificaciones e Interfaz
   const [toastMessage, setToastMessage] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [leaderboardFilter, setLeaderboardFilter] = useState('active');
 
   // ==========================================
   // EFECTOS (useEffect) Y SINCRONIZACIÓN
@@ -161,12 +162,34 @@ const Dashboard = ({ userId, onLogout }) => {
 
   useEffect(() => {
     if (!roster || roster.length === 0) return;
-    const needsMigration = roster.some(p => p && p.history && (p.history.pe === undefined || p.history.pp === undefined));
+    const needsMigration = roster.some(p => p && p.history && (p.history.pe === undefined || p.history.pp === undefined || ((p.history.pj || 0) > 0 && !p.lastMatchDate)));
     if (needsMigration) {
       const migratedRoster = roster.map(p => {
         if (!p) return p;
         if (!p.history) return p;
-        if (p.history.pe !== undefined && p.history.pp !== undefined) return p;
+        
+        let lastMatchDate = p.lastMatchDate;
+        if ((p.history.pj || 0) > 0 && !lastMatchDate) {
+          const matchesWithPlayer = matchHistory.filter(match => {
+            const inA = match.teamA?.some(m => m && (m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase())));
+            const inB = match.teamB?.some(m => m && (m.id === p.id || (m.name && p.name && m.name.toLowerCase() === p.name.toLowerCase())));
+            return inA || inB;
+          });
+          if (matchesWithPlayer.length > 0) {
+            const latest = matchesWithPlayer.reduce((latestMatch, currentMatch) => {
+              const latestTime = new Date(latestMatch.eventDate || latestMatch.date || 0).getTime();
+              const currentTime = new Date(currentMatch.eventDate || currentMatch.date || 0).getTime();
+              return currentTime > latestTime ? currentMatch : latestMatch;
+            }, matchesWithPlayer[0]);
+            lastMatchDate = latest.eventDate || latest.date || new Date().toISOString();
+          } else {
+            lastMatchDate = new Date().toISOString();
+          }
+        }
+        
+        if (p.history.pe !== undefined && p.history.pp !== undefined) {
+          return { ...p, lastMatchDate };
+        }
         
         let pe = 0;
         let pp = 0;
@@ -199,6 +222,7 @@ const Dashboard = ({ userId, onLogout }) => {
         
         return {
           ...p,
+          lastMatchDate,
           history: {
             ...p.history,
             pe,
@@ -431,6 +455,7 @@ const Dashboard = ({ userId, onLogout }) => {
               ovr={calcOvr(selectedPlayerDetails)}
               stamina={selectedPlayerDetails.condition?.stamina ?? 100}
               badges={getPlayerBadges(selectedPlayerDetails)}
+              isInjured={selectedPlayerDetails.condition?.isResting}
             />
             <span style={{ 
               marginTop: '1rem', 
@@ -877,6 +902,42 @@ const Dashboard = ({ userId, onLogout }) => {
     }));
   };
 
+  const addPlayerToEvent = async (p) => {
+    if (!activeEvent) return;
+    const isRegistered = eventRegistrations.some(reg => reg.name.toLowerCase().trim() === p.name.toLowerCase().trim());
+    if (isRegistered) return;
+
+    const newReg = {
+      host_id: hostId,
+      player_id: p.id,
+      name: p.name,
+      role: p.role,
+      stats: p.stats,
+      avatar: p.avatar
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('event_registrations').insert(newReg);
+      if (error) {
+        console.error("Error adding player to event:", error);
+      }
+    } else {
+      setEventRegistrations(prev => [...prev, { ...newReg, id: Date.now().toString() }]);
+    }
+  };
+
+  const removePlayerFromEvent = async (name) => {
+    if (!activeEvent) return;
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('event_registrations').delete().eq('host_id', hostId).eq('name', name);
+      if (error) {
+        console.error("Error removing player from event:", error);
+      }
+    } else {
+      setEventRegistrations(prev => prev.filter(reg => reg.name.toLowerCase().trim() !== name.toLowerCase().trim()));
+    }
+  };
+
   const calcRawOvr = (stats) => {
     if (!stats) return 75;
     return Math.round(((stats.pac || 75) + (stats.sho || 75) + (stats.pas || 75) + (stats.dri || 75) + (stats.def || 75) + (stats.phy || 75)) / 6);
@@ -925,7 +986,7 @@ const Dashboard = ({ userId, onLogout }) => {
           };
         });
       } else {
-        pool = roster;
+        pool = roster.filter(p => !p.condition?.isResting);
       }
       
       const mapRole = (r) => {
@@ -1047,7 +1108,7 @@ const Dashboard = ({ userId, onLogout }) => {
           };
         });
       } else {
-        pool = roster;
+        pool = roster.filter(p => !p.condition?.isResting);
       }
       
       const mapRole = (r) => {
@@ -1385,6 +1446,7 @@ const Dashboard = ({ userId, onLogout }) => {
           updatedRoster[existingIndex] = {
              ...ep,
              player_id: matchPlayer.player_id || ep.player_id || null,
+             lastMatchDate: new Date().toISOString(),
              history: { 
                  pj: (ep.history?.pj || 0) + 1, 
                  pg: (ep.history?.pg || 0) + (winnerMatches ? 1 : 0), 
@@ -1408,6 +1470,7 @@ const Dashboard = ({ userId, onLogout }) => {
        } else {
           updatedRoster.push({
              ...matchPlayer,
+             lastMatchDate: new Date().toISOString(),
              history: { 
                  pj: 1, 
                  pg: winnerMatches ? 1 : 0, 
@@ -1698,7 +1761,16 @@ const Dashboard = ({ userId, onLogout }) => {
                                 <span style={{ fontSize: '1.2rem' }}>{r.avatar || '👤'}</span>
                                 <span style={{ color: 'white', fontWeight: 'bold' }}>{r.name}</span>
                               </div>
-                              <span style={{ color: 'var(--off-white)', fontSize: '0.8rem' }}>{r.role}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <span style={{ color: 'var(--off-white)', fontSize: '0.8rem' }}>{r.role}</span>
+                                <button 
+                                  onClick={() => removePlayerFromEvent(r.name)} 
+                                  style={{ background: 'transparent', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', padding: '0 0.2rem' }}
+                                  title="Quitar del Lobby"
+                                >
+                                  ❌
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1831,8 +1903,69 @@ const Dashboard = ({ userId, onLogout }) => {
     );
   }
 
+  if (viewMode === 'hospital') {
+    const injuredPlayers = roster.filter(p => p.condition?.isResting);
+
+    return (
+      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
+        <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0, textShadow: '0 0 20px rgba(255,59,48,0.5)', color: '#FF3B30' }}>🏥 HOSPITAL</h1>
+          <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>Jugadores en proceso de recuperación médica</p>
+        </header>
+
+        {injuredPlayers.length === 0 ? (
+          <div className="glass-panel" style={{ textAlign: 'center', padding: '4rem 2rem', border: '1px dashed rgba(255,255,255,0.1)' }}>
+            <span style={{ fontSize: '4rem', display: 'block', marginBottom: '1.5rem' }}>💚</span>
+            <h2 style={{ color: 'white', marginBottom: '0.5rem' }}>¡Plantilla Completa y Saludable!</h2>
+            <p style={{ color: 'var(--off-white)' }}>No hay ningún jugador registrado en el hospital en este momento.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '2rem' }}>
+            {injuredPlayers.map(p => (
+              <div key={p.id} className="glass-panel" style={{ border: '1px solid rgba(255, 59, 48, 0.3)', boxShadow: '0 8px 32px 0 rgba(255, 59, 48, 0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '1.5rem', filter: 'drop-shadow(0 0 5px rgba(255,59,48,0.5))' }}>🤕</div>
+                {p.avatar && (
+                  <div style={{ width: '70px', height: '70px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', border: '2px solid rgba(255,59,48,0.3)' }}>
+                    {p.avatar.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'2rem'}}>{p.avatar}</span>}
+                  </div>
+                )}
+                <h3 style={{ color: 'white', fontSize: '1.2rem', marginBottom: '0.2rem' }}>{p.name}</h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--electric-cyan)', textTransform: 'uppercase', marginBottom: '1rem' }}>{p.role}</span>
+                
+                <div style={{ width: '100%', background: 'rgba(0,0,0,0.3)', padding: '0.8rem', borderRadius: '8px', marginBottom: '1.5rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--off-white)', marginBottom: '0.3rem' }}>ENERGÍA / RECUPERACIÓN</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                    <div style={{ width: '80px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${p.condition?.stamina ?? 50}%`, height: '100%', background: '#FF3B30' }}></div>
+                    </div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#FF3B30' }}>{p.condition?.stamina ?? 50}%</span>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => healPlayer(p.id)} 
+                  className="btn-primary" 
+                  style={{ width: '100%', background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)', color: 'white', border: 'none', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
+                >
+                  ❤️ DAR ALTA
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {renderPlayerDetailsModal()}
+      </div>
+    );
+  }
+
   if (viewMode === 'stats') {
-    const sortedRoster = [...roster].sort((a, b) => {
+    const playedPlayers = roster.filter(p => (p.history?.pj || 0) > 0);
+    const filteredRoster = playedPlayers.filter(p => {
+      const lastTime = p.lastMatchDate ? new Date(p.lastMatchDate).getTime() : Date.now();
+      const isActive = (Date.now() - lastTime) < 30 * 24 * 60 * 60 * 1000;
+      return leaderboardFilter === 'active' ? isActive : !isActive;
+    });
+    const sortedRoster = [...filteredRoster].sort((a, b) => {
       return (b.glicko?.rating || 1500) - (a.glicko?.rating || 1500);
     });
 
@@ -1857,6 +1990,43 @@ const Dashboard = ({ userId, onLogout }) => {
           </div>
         </header>
 
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '0 0 2rem 0' }}>
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '30px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <button 
+              onClick={() => setLeaderboardFilter('active')} 
+              style={{ 
+                background: leaderboardFilter === 'active' ? 'linear-gradient(135deg, var(--volt-lime) 0%, #128C7E 100%)' : 'transparent', 
+                color: leaderboardFilter === 'active' ? 'black' : 'var(--off-white)',
+                border: 'none',
+                borderRadius: '25px',
+                padding: '0.6rem 1.5rem',
+                fontSize: '0.9rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s'
+              }}
+            >
+              🏃 JUGADORES ACTIVOS
+            </button>
+            <button 
+              onClick={() => setLeaderboardFilter('inactive')} 
+              style={{ 
+                background: leaderboardFilter === 'inactive' ? 'linear-gradient(135deg, var(--crimson-red) 0%, #8b0000 100%)' : 'transparent', 
+                color: leaderboardFilter === 'inactive' ? 'white' : 'var(--off-white)',
+                border: 'none',
+                borderRadius: '25px',
+                padding: '0.6rem 1.5rem',
+                fontSize: '0.9rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s'
+              }}
+            >
+              💤 INACTIVOS (ÚLT. MES)
+            </button>
+          </div>
+        </div>
+
         <div className="glass-panel responsive-table-wrapper" style={{ padding: '0' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
@@ -1874,7 +2044,14 @@ const Dashboard = ({ userId, onLogout }) => {
               </tr>
             </thead>
             <tbody>
-              {sortedRoster.map((p, i) => {
+              {sortedRoster.length === 0 ? (
+                <tr>
+                  <td colSpan="10" style={{ padding: '3rem', textAlign: 'center', color: 'var(--off-white)' }}>
+                    No hay jugadores en esta categoría.
+                  </td>
+                </tr>
+              ) : (
+                sortedRoster.map((p, i) => {
                 const pj = p.history?.pj || 0;
                 const pg = p.history?.pg || 0;
                 const pe = p.history?.pe || 0;
@@ -1905,7 +2082,7 @@ const Dashboard = ({ userId, onLogout }) => {
                     <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--electric-cyan)' }}>{winRate}%</td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
@@ -2142,6 +2319,7 @@ const Dashboard = ({ userId, onLogout }) => {
                   ovr={calcOvr(walkoutPlayer)}
                   stamina={walkoutPlayer.condition?.stamina ?? 100}
                   badges={getPlayerBadges(walkoutPlayer)}
+                  isInjured={walkoutPlayer.condition?.isResting}
                 />
               </div>
 
@@ -2195,6 +2373,13 @@ const Dashboard = ({ userId, onLogout }) => {
               className={`nav-tab-btn ${viewMode === 'history' ? 'active' : ''}`}
             >
               📚 HISTÓRICO
+            </button>
+            <button 
+              onClick={() => setViewMode('hospital')} 
+              className={`nav-tab-btn ${viewMode === 'hospital' ? 'active' : ''}`}
+              style={{ border: '1px solid rgba(255, 59, 48, 0.3)', color: '#FF3B30' }}
+            >
+              🏥 HOSPITAL
             </button>
             <button 
               onClick={copyLeagueLink} 
@@ -2365,7 +2550,7 @@ const Dashboard = ({ userId, onLogout }) => {
          )}
       </div>
 
-      <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '2rem', opacity: activeEvent ? 0.3 : 1, pointerEvents: activeEvent ? 'none' : 'auto' }}>
+      <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '2rem', opacity: (activeEvent && activeEvent.status !== 'lobby') ? 0.3 : 1, pointerEvents: (activeEvent && activeEvent.status !== 'lobby') ? 'none' : 'auto' }}>
         <aside className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.2rem' }}>
           <div>
             <h3 style={{ color: 'var(--electric-cyan)', marginBottom: '1rem', fontSize: '1.1rem' }}>{editingPlayerId ? 'Editar Jugador' : 'Agregar Jugador'}</h3>
@@ -2415,42 +2600,52 @@ const Dashboard = ({ userId, onLogout }) => {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
               <h3 style={{ color: 'var(--pure-white)' }}>Convocados</h3>
-              <span className="glow-text-volt" style={{ fontWeight: 'bold' }}>{roster.length} JUG</span>
+              <span className="glow-text-volt" style={{ fontWeight: 'bold' }}>{roster.filter(p => !p.condition?.isResting).length} JUG</span>
             </div>
             
             <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '0.5rem', maxHeight: '250px', overflowY: 'auto' }}>
-              {roster.length === 0 ? (
+              {roster.filter(p => !p.condition?.isResting).length === 0 ? (
                 <p className="text-muted" style={{ textAlign: 'center', marginTop: '2rem' }}>Plantilla vacía</p>
               ) : (
                 <ul style={{ listStyle: 'none' }}>
-                  {roster.map(p => (
-                    <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center' }}>
-                      <div onClick={() => setSelectedPlayerDetails(p)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
-                        {p.avatar && (
-                          <div style={{ width: '25px', height: '25px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {p.avatar.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'0.8rem'}}>{p.avatar}</span>}
-                          </div>
-                        )}
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontWeight: 'bold', fontSize: '0.9rem', textDecoration: p.financial?.isBanned ? 'line-through' : 'none', color: p.financial?.isBanned ? 'var(--crimson-red)' : 'white' }}>
-                            {p.name} {p.financial?.isBanned && '🟥'}
-                          </span>
-                          <span style={{ fontSize: '0.7rem', color: p.role === 'Ancla' ? 'var(--electric-cyan)' : 'var(--off-white)' }}>{p.role}</span>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-                        <span className="glow-text-volt" style={{ fontSize: '0.9rem', fontWeight: 'bold', minWidth: '20px' }}>{calcOvr(p)}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '60px' }} title={`Energía: ${p.condition?.stamina ?? 100}%`}>
-                          <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{ width: `${p.condition?.stamina ?? 100}%`, height: '100%', background: (p.condition?.stamina ?? 100) > 60 ? '#25D366' : ((p.condition?.stamina ?? 100) > 30 ? '#FFA500' : '#FF3B30'), transition: 'width 0.3s' }}></div>
+                  {roster.filter(p => !p.condition?.isResting).map(p => {
+                    const isRegistered = activeEvent && eventRegistrations.some(reg => reg.name.toLowerCase().trim() === p.name.toLowerCase().trim());
+                    return (
+                      <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center' }}>
+                        <div onClick={() => setSelectedPlayerDetails(p)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
+                          {p.avatar && (
+                            <div style={{ width: '25px', height: '25px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {p.avatar.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'0.8rem'}}>{p.avatar}</span>}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', textDecoration: p.financial?.isBanned ? 'line-through' : 'none', color: p.financial?.isBanned ? 'var(--crimson-red)' : 'white' }}>
+                              {p.name} {p.financial?.isBanned && '🟥'}
+                            </span>
+                            <span style={{ fontSize: '0.7rem', color: p.role === 'Ancla' ? 'var(--electric-cyan)' : 'var(--off-white)' }}>{p.role}</span>
                           </div>
                         </div>
-                        <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: p.condition?.isResting ? 1 : 0.2 }} title="Curar / Descansar">🏥</button>
-                        <button onClick={() => startEdit(p)} style={{ background: 'none', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '1rem', opacity: 0.8 }} title="Editar jugador">✏️</button>
-                        <button onClick={() => removePlayer(p.id)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.7 }} title="Eliminar jugador">&times;</button>
-                      </div>
-                    </li>
-                  ))}
+                        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                          <span className="glow-text-volt" style={{ fontSize: '0.9rem', fontWeight: 'bold', minWidth: '20px' }}>{calcOvr(p)}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '60px' }} title={`Energía: ${p.condition?.stamina ?? 100}%`}>
+                            <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{ width: `${p.condition?.stamina ?? 100}%`, height: '100%', background: (p.condition?.stamina ?? 100) > 60 ? '#25D366' : ((p.condition?.stamina ?? 100) > 30 ? '#FFA500' : '#FF3B30'), transition: 'width 0.3s' }}></div>
+                            </div>
+                          </div>
+                          {activeEvent && activeEvent.status === 'lobby' && (
+                            isRegistered ? (
+                              <button onClick={() => removePlayerFromEvent(p.name)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center' }} title="Quitar del Lobby">➖</button>
+                            ) : (
+                              <button onClick={() => addPlayerToEvent(p)} style={{ background: 'none', border: 'none', color: 'var(--volt-lime)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center' }} title="Sumar al Lobby">➕</button>
+                            )
+                          )}
+                          <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.4 }} title="Reportar Lesión (Hospital)">🤕</button>
+                          <button onClick={() => startEdit(p)} style={{ background: 'none', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '1rem', opacity: 0.8 }} title="Editar jugador">✏️</button>
+                          <button onClick={() => removePlayer(p.id)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.7 }} title="Eliminar jugador">&times;</button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -2493,7 +2688,7 @@ const Dashboard = ({ userId, onLogout }) => {
                     {teamA.slice(0, Math.ceil(revealedCount / 2)).map(p => (
                       <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                         <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
-                          <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} />
+                          <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} isInjured={p.condition?.isResting} stamina={p.condition?.stamina ?? 100} />
                         </div>
                         {!isDrafting && (
                           <button 
@@ -2525,7 +2720,7 @@ const Dashboard = ({ userId, onLogout }) => {
                     {teamB.slice(0, Math.floor(revealedCount / 2)).map(p => (
                       <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                         <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
-                          <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} />
+                          <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} isInjured={p.condition?.isResting} stamina={p.condition?.stamina ?? 100} />
                         </div>
                         {!isDrafting && (
                           <button 
