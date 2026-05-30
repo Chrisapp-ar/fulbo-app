@@ -962,20 +962,43 @@ const Dashboard = ({ userId, onLogout }) => {
     
     // Save previous state for rollback
     const previousRegs = [...eventRegistrations];
+    const previousA = [...teamA];
+    const previousB = [...teamB];
+
+    // Optimistic update: instantly remove from local state and team lists
+    setEventRegistrations(prev => prev.filter(reg => reg.name.toLowerCase().trim() !== name.toLowerCase().trim()));
+    
+    const newA = teamA.filter(x => x.name.toLowerCase().trim() !== name.toLowerCase().trim());
+    const newB = teamB.filter(x => x.name.toLowerCase().trim() !== name.toLowerCase().trim());
+    setTeamA(newA);
+    setTeamB(newB);
+    setActiveEvent(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        teamA: newA,
+        teamB: newB
+      };
+    });
 
     if (isSupabaseConfigured && supabase) {
-      // Optimistic update: instantly remove from local state
-      setEventRegistrations(prev => prev.filter(reg => reg.name.toLowerCase().trim() !== name.toLowerCase().trim()));
-
       const { error } = await supabase.from('event_registrations').delete().eq('host_id', hostId).eq('name', name);
       if (error) {
         console.error("Error removing player from event:", error);
         alert("Error al quitar al jugador: " + error.message);
         // Rollback
         setEventRegistrations(previousRegs);
+        setTeamA(previousA);
+        setTeamB(previousB);
+        setActiveEvent(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            teamA: previousA,
+            teamB: previousB
+          };
+        });
       }
-    } else {
-      setEventRegistrations(prev => prev.filter(reg => reg.name.toLowerCase().trim() !== name.toLowerCase().trim()));
     }
   };
 
@@ -2575,15 +2598,6 @@ const Dashboard = ({ userId, onLogout }) => {
                         const text = `🔥 *MATCH DAY CREADO* 🔥\n\n📅 Fecha: ${activeEvent.date}\n⏰ Hora: ${activeEvent.time}\n⚽ Formato: Fulbo ${activeEvent.format/2} (${activeEvent.format} Jugadores)\n\n👉 *Inscríbete y arma tu Carta aquí:* ${window.location.origin}/?league=${hostId}`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                      }} style={{ ...btnSec, borderColor: '#25D366', color: '#25D366', boxShadow: '0 0 10px rgba(37,211,102,0.3)', padding: '0.5rem 1rem' }}>COMPARTIR 📱</button>
-                     <button 
-                        onClick={() => balanceTeamsRandomlyByRole(true)} 
-                        className="btn-primary" 
-                        disabled={isLoading || uniqueRegistrations.length < 8} 
-                        style={{ padding: '0.5rem 2rem', background: 'linear-gradient(135deg, var(--ultimate-gold) 0%, #FFA500 100%)', color: 'black', border: 'none' }}
-                     >
-                        🎲 ARMAR EQUIPOS ALEATORIOS
-                     </button>
-                     <button onClick={() => balanceTeamsLocally(true)} className="btn-primary" disabled={isLoading || uniqueRegistrations.length < 8} style={{ padding: '0.5rem 2rem' }}>ADMITIR Y ARMAR EQUIPOS</button>
                   </div>
                </div>
                <p style={{ color: 'var(--electric-cyan)', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'right' }}>*Cupos disponibles: {Math.max(0, activeEvent.format - uniqueRegistrations.length)}</p>
@@ -2591,7 +2605,7 @@ const Dashboard = ({ userId, onLogout }) => {
          )}
       </div>
 
-      <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '2rem', opacity: (activeEvent && activeEvent.status !== 'lobby') ? 0.3 : 1, pointerEvents: (activeEvent && activeEvent.status !== 'lobby') ? 'none' : 'auto' }}>
+      <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '2rem', opacity: (activeEvent && activeEvent.status === 'match') ? 0.3 : 1, pointerEvents: (activeEvent && activeEvent.status === 'match') ? 'none' : 'auto' }}>
         <aside className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.2rem', position: 'relative' }}>
           {!activeEvent && (
             <div style={{
@@ -2727,6 +2741,9 @@ const Dashboard = ({ userId, onLogout }) => {
                       stats: reg.stats || { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 },
                       condition: { stamina: 100 }
                     };
+                    const inA = teamA.some(x => x.id === p.id || (x.name && p.name && x.name.toLowerCase().trim() === p.name.toLowerCase().trim()));
+                    const inB = teamB.some(x => x.id === p.id || (x.name && p.name && x.name.toLowerCase().trim() === p.name.toLowerCase().trim()));
+
                     return (
                       <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center' }}>
                         <div onClick={() => setSelectedPlayerDetails(p)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
@@ -2752,6 +2769,50 @@ const Dashboard = ({ userId, onLogout }) => {
                           {activeEvent && activeEvent.status === 'lobby' && (
                             <button onClick={() => removePlayerFromEvent(p.name)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center' }} title="Quitar del Lobby">➖</button>
                           )}
+                          {activeEvent && activeEvent.status === 'preview' && (
+                            <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                              {!inA && !inB ? (
+                                <>
+                                  <button 
+                                    onClick={() => movePlayerToTeam(p, 'A')} 
+                                    style={{ background: 'var(--volt-lime)', border: 'none', color: 'black', borderRadius: '4px', padding: '0.15rem 0.35rem', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}
+                                    title="Sumar a Equipo A"
+                                  >
+                                    +A
+                                  </button>
+                                  <button 
+                                    onClick={() => movePlayerToTeam(p, 'B')} 
+                                    style={{ background: 'var(--electric-cyan)', border: 'none', color: 'black', borderRadius: '4px', padding: '0.15rem 0.35rem', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}
+                                    title="Sumar a Equipo B"
+                                  >
+                                    +B
+                                  </button>
+                                </>
+                              ) : (
+                                <button 
+                                  onClick={() => {
+                                    const newA = teamA.filter(x => x.id !== p.id && x.name.toLowerCase().trim() !== p.name.toLowerCase().trim());
+                                    const newB = teamB.filter(x => x.id !== p.id && x.name.toLowerCase().trim() !== p.name.toLowerCase().trim());
+                                    setTeamA(newA);
+                                    setTeamB(newB);
+                                    setActiveEvent(prev => {
+                                      if (!prev) return null;
+                                      return {
+                                        ...prev,
+                                        teamA: newA,
+                                        teamB: newB
+                                      };
+                                    });
+                                  }} 
+                                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--off-white)', borderRadius: '4px', padding: '0.15rem 0.35rem', cursor: 'pointer', fontSize: '0.65rem' }}
+                                  title="Quitar del Equipo"
+                                >
+                                  Quitar
+                                </button>
+                              )}
+                              <button onClick={() => removePlayerFromEvent(p.name)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center' }} title="Quitar del Partido">➖</button>
+                            </div>
+                          )}
                           <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.4 }} title="Reportar Lesión (Hospital)">🤕</button>
                           <button onClick={() => startEdit(p)} style={{ background: 'none', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '1rem', opacity: 0.8 }} title="Editar jugador">✏️</button>
                           <button onClick={() => removePlayer(p.id)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.7 }} title="Eliminar jugador">&times;</button>
@@ -2775,9 +2836,27 @@ const Dashboard = ({ userId, onLogout }) => {
               <div style={{ width: '120px', height: '120px', border: '2px dashed rgba(204,255,0,0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ fontSize: '3rem', filter: 'grayscale(1)', opacity: 0.3 }}>⚽</span>
               </div>
-              <p style={{ color: 'var(--off-white)', fontSize: '1.2rem', textAlign: 'center', maxWidth: '400px', lineHeight: '1.6' }}>
+              <p style={{ color: 'var(--off-white)', fontSize: '1.2rem', textAlign: 'center', maxWidth: '400px', lineHeight: '1.6', margin: 0 }}>
                 Agrega jugadores y presiona <strong className="glow-text-volt">Armar Equipos</strong>.
               </p>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button 
+                  onClick={() => balanceTeamsLocally(true)} 
+                  className="btn-primary" 
+                  disabled={isLoading || uniqueRegistrations.length < 8}
+                  style={{ padding: '0.8rem 2rem', fontSize: '1rem', width: 'auto' }}
+                >
+                  {isLoading ? 'CALCULANDO IA...' : '🔄 ARMAR EQUIPOS POR ROL'}
+                </button>
+                <button 
+                  onClick={() => balanceTeamsRandomlyByRole(true)} 
+                  className="btn-primary" 
+                  disabled={isLoading || uniqueRegistrations.length < 8}
+                  style={{ padding: '0.8rem 2rem', fontSize: '1rem', width: 'auto', background: 'linear-gradient(135deg, var(--ultimate-gold) 0%, #FFA500 100%)', color: 'black', border: 'none' }}
+                >
+                  🎲 ARMAR ALEATORIOS
+                </button>
+              </div>
             </div>
           ) : (
             <>
