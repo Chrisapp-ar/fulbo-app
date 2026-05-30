@@ -876,7 +876,41 @@ const Dashboard = ({ userId, onLogout }) => {
     if (!name) return;
     
     if (editingPlayerId) {
-      setRoster(roster.map(p => p.id === editingPlayerId ? { ...p, name, role, avatar: currentAvatar, stats: {...skills} } : p));
+      const inRoster = roster.some(p => p.id === editingPlayerId);
+      if (inRoster) {
+        setRoster(roster.map(p => p.id === editingPlayerId ? { ...p, name, role, avatar: currentAvatar, stats: {...skills} } : p));
+      } else {
+        // Add guest player to roster
+        const newPlayer = { 
+          id: editingPlayerId, 
+          name, 
+          role, 
+          avatar: currentAvatar, 
+          stats: {...skills}, 
+          history: { pj: 0, pg: 0, pe: 0, pp: 0, goals: 0 }, 
+          glicko: { rating: 1500, rd: 350, vol: 0.06 }, 
+          financial: { debt: 0, isBanned: false }, 
+          condition: { stamina: 100 } 
+        };
+        setRoster([...roster, newPlayer]);
+      }
+      
+      // Update registration details in local state and database
+      setEventRegistrations(prev => prev.map(reg => reg.id === editingPlayerId ? { ...reg, name, role, stats: {...skills}, avatar: currentAvatar } : reg));
+      if (isSupabaseConfigured && supabase) {
+        const isUuid = (str) => {
+          if (!str) return false;
+          return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+        };
+        if (isUuid(editingPlayerId)) {
+          await supabase.from('event_registrations').update({
+            name,
+            role,
+            stats: skills,
+            avatar: currentAvatar
+          }).eq('id', editingPlayerId);
+        }
+      }
     } else {
       const newPlayer = { 
         id: Date.now().toString(), 
@@ -911,20 +945,40 @@ const Dashboard = ({ userId, onLogout }) => {
   };
   
   const healPlayer = (id) => {
-    setRoster(roster.map(p => {
-      if (p.id === id) {
-        const isCurrentlyResting = p.condition?.isResting || false;
-        return {
-          ...p,
-          condition: {
-            ...p.condition,
-            isResting: !isCurrentlyResting,
-            stamina: isCurrentlyResting ? 100 : 50
-          }
+    const inRoster = roster.some(p => p.id === id);
+    if (inRoster) {
+      setRoster(roster.map(p => {
+        if (p.id === id) {
+          const isCurrentlyResting = p.condition?.isResting || false;
+          return {
+            ...p,
+            condition: {
+              ...p.condition,
+              isResting: !isCurrentlyResting,
+              stamina: isCurrentlyResting ? 100 : 50
+            }
+          };
+        }
+        return p;
+      }));
+    } else {
+      // Find them in registrations to get their details
+      const reg = eventRegistrations.find(r => r.id === id);
+      if (reg) {
+        const newPlayer = {
+          id: id,
+          name: reg.name,
+          role: reg.role || 'Mediocampo',
+          avatar: reg.avatar || '👤',
+          stats: reg.stats || { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 },
+          history: { pj: 0, pg: 0, pe: 0, pp: 0, goals: 0 }, 
+          glicko: { rating: 1500, rd: 350, vol: 0.06 }, 
+          financial: { debt: 0, isBanned: false }, 
+          condition: { isResting: true, stamina: 50 }
         };
+        setRoster([...roster, newPlayer]);
       }
-      return p;
-    }));
+    }
   };
 
   const addPlayerToEvent = async (p) => {
@@ -2844,12 +2898,8 @@ const Dashboard = ({ userId, onLogout }) => {
                               )}
                             </div>
                           )}
-                          {isRosterPlayer && (
-                            <>
-                              <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.4 }} title="Reportar Lesión (Hospital)">🤕</button>
-                              <button onClick={() => startEdit(p)} style={{ background: 'none', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '1rem', opacity: 0.8 }} title="Editar jugador">✏️</button>
-                            </>
-                          )}
+                          <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.4 }} title="Reportar Lesión (Hospital)">🤕</button>
+                          <button onClick={() => startEdit(p)} style={{ background: 'none', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '1rem', opacity: 0.8 }} title="Editar jugador">✏️</button>
                           <button 
                             onClick={() => removePlayerFromEvent(p.name, reg.id)} 
                             style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.7 }} 
