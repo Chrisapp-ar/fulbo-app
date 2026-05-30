@@ -796,11 +796,11 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                 width: '50px', 
                 height: '50px', 
                 objectFit: 'contain', 
-                filter: 'drop-shadow(0 8px 12px rgba(204,255,0,0.6)) drop-shadow(0 3px 4px rgba(0,0,0,0.8))', 
+                mixBlendMode: 'screen', 
                 transform: 'rotateY(20deg) rotateX(15deg) translateZ(10px)' 
               }} 
             />
-            <h1 style={{ fontSize: '2.2rem', margin: 0, fontStyle: 'italic', fontWeight: '900', letterSpacing: '1.5px', background: 'linear-gradient(135deg, var(--volt-lime) 0%, #ffffff 40%, var(--electric-cyan) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 4px 5px rgba(0,0,0,0.6))' }}>FULBO</h1>
+            <h1 style={{ fontSize: '2.2rem', margin: 0, fontStyle: 'italic', fontWeight: '900', letterSpacing: '1.5px', paddingRight: '0.2em', background: 'linear-gradient(135deg, var(--volt-lime) 0%, #ffffff 40%, var(--electric-cyan) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 4px 5px rgba(0,0,0,0.6))' }}>FULBO</h1>
           </div>
           <span style={{ color: 'var(--electric-cyan)', fontSize: '0.6rem', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: '900', marginTop: '0.4rem', textShadow: '0 0 10px rgba(0, 240, 255, 0.8)' }}>THE ELITE MATCHMAKING ENGINE</span>
           <p style={{ color: 'var(--off-white)', letterSpacing: '1px', textTransform: 'uppercase', marginTop: '0.4rem', fontWeight: '600', fontSize: '0.65rem', opacity: 0.8 }}>

@@ -2627,14 +2627,14 @@ const Dashboard = ({ userId, onLogout }) => {
                 width: '90px', 
                 height: '90px', 
                 objectFit: 'contain', 
-                filter: 'drop-shadow(0 15px 20px rgba(204,255,0,0.6)) drop-shadow(0 5px 5px rgba(0,0,0,0.9))', 
+                mixBlendMode: 'screen',
                 transform: 'rotateY(20deg) rotateX(15deg) translateZ(20px)', 
                 transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)' 
               }} 
               onMouseEnter={(e) => e.target.style.transform = 'rotateY(0deg) rotateX(0deg) translateZ(40px) scale(1.15)'} 
               onMouseLeave={(e) => e.target.style.transform = 'rotateY(20deg) rotateX(15deg) translateZ(20px) scale(1)'} 
             />
-            <h1 style={{ fontSize: '4.5rem', margin: 0, fontStyle: 'italic', fontWeight: '900', letterSpacing: '2px', background: 'linear-gradient(135deg, var(--volt-lime) 0%, #ffffff 40%, var(--electric-cyan) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.6))' }}>FULBO</h1>
+            <h1 style={{ fontSize: '4.5rem', margin: 0, fontStyle: 'italic', fontWeight: '900', letterSpacing: '2px', paddingRight: '0.2em', background: 'linear-gradient(135deg, var(--volt-lime) 0%, #ffffff 40%, var(--electric-cyan) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.6))' }}>FULBO</h1>
           </div>
           <span style={{ color: 'var(--electric-cyan)', fontSize: '0.9rem', letterSpacing: '6px', textTransform: 'uppercase', fontWeight: '900', marginTop: '0.8rem', textShadow: '0 0 15px rgba(0, 240, 255, 0.9)' }}>THE ELITE MATCHMAKING ENGINE</span>
           <p style={{ color: 'var(--off-white)', letterSpacing: '2px', textTransform: 'uppercase', marginTop: '0.8rem', fontWeight: '600', fontSize: '0.75rem', opacity: 0.8 }}>
