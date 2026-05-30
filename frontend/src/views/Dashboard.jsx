@@ -783,13 +783,11 @@ const Dashboard = ({ userId, onLogout }) => {
           table: 'event_registrations'
         },
         (payload) => {
-          if ((payload.new && payload.new.host_id === hostId) || (payload.old && payload.old.host_id === hostId)) {
-            if (payload.eventType === 'INSERT' && payload.new) {
-              setToastMessage(`⚽ ¡${payload.new.name} se ha unido al partido!`);
-              setTimeout(() => setToastMessage(''), 4000);
-            }
-            fetchRegistrations();
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setToastMessage(`⚽ ¡${payload.new.name} se ha unido al partido!`);
+            setTimeout(() => setToastMessage(''), 4000);
           }
+          fetchRegistrations();
         }
       )
       .subscribe();
@@ -970,7 +968,7 @@ const Dashboard = ({ userId, onLogout }) => {
     }
   };
 
-  const removePlayerFromEvent = async (name) => {
+  const removePlayerFromEvent = async (name, regId) => {
     if (!activeEvent) return;
     
     // Save previous state for rollback
@@ -995,7 +993,16 @@ const Dashboard = ({ userId, onLogout }) => {
     });
 
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.from('event_registrations').delete().eq('host_id', hostId).eq('name', name);
+      const isUuid = (str) => {
+        if (!str) return false;
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+      };
+
+      const deleteQuery = (regId && isUuid(regId)) 
+        ? supabase.from('event_registrations').delete().eq('id', regId).eq('host_id', hostId)
+        : supabase.from('event_registrations').delete().eq('host_id', hostId).eq('name', name);
+        
+      const { error } = await deleteQuery;
       if (error) {
         console.error("Error removing player from event:", error);
         alert("Error al quitar al jugador: " + error.message);
@@ -1845,7 +1852,7 @@ const Dashboard = ({ userId, onLogout }) => {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                 <span style={{ color: 'var(--off-white)', fontSize: '0.8rem' }}>{r.role}</span>
                                 <button 
-                                  onClick={() => removePlayerFromEvent(r.name)} 
+                                  onClick={() => removePlayerFromEvent(r.name, r.id)} 
                                   style={{ background: 'transparent', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', padding: '0 0.2rem' }}
                                   title="Quitar del Lobby"
                                 >
@@ -2768,6 +2775,7 @@ const Dashboard = ({ userId, onLogout }) => {
                       stats: reg.stats || { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 },
                       condition: { stamina: 100 }
                     };
+                    const isRosterPlayer = roster.some(player => player.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
                     const inA = teamA.some(x => x.id === p.id || (x.name && p.name && x.name.toLowerCase().trim() === p.name.toLowerCase().trim()));
                     const inB = teamB.some(x => x.id === p.id || (x.name && p.name && x.name.toLowerCase().trim() === p.name.toLowerCase().trim()));
 
@@ -2793,9 +2801,6 @@ const Dashboard = ({ userId, onLogout }) => {
                               <div style={{ width: `${p.condition?.stamina ?? 100}%`, height: '100%', background: (p.condition?.stamina ?? 100) > 60 ? '#25D366' : ((p.condition?.stamina ?? 100) > 30 ? '#FFA500' : '#FF3B30'), transition: 'width 0.3s' }}></div>
                             </div>
                           </div>
-                          {activeEvent && activeEvent.status === 'lobby' && (
-                            <button onClick={() => removePlayerFromEvent(p.name)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center' }} title="Quitar del Lobby">➖</button>
-                          )}
                           {activeEvent && activeEvent.status === 'preview' && (
                             <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
                               {!inA && !inB ? (
@@ -2837,12 +2842,21 @@ const Dashboard = ({ userId, onLogout }) => {
                                   Quitar
                                 </button>
                               )}
-                              <button onClick={() => removePlayerFromEvent(p.name)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center' }} title="Quitar del Partido">➖</button>
                             </div>
                           )}
-                          <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.4 }} title="Reportar Lesión (Hospital)">🤕</button>
-                          <button onClick={() => startEdit(p)} style={{ background: 'none', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '1rem', opacity: 0.8 }} title="Editar jugador">✏️</button>
-                          <button onClick={() => removePlayer(p.id)} style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.7 }} title="Eliminar jugador">&times;</button>
+                          {isRosterPlayer && (
+                            <>
+                              <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.4 }} title="Reportar Lesión (Hospital)">🤕</button>
+                              <button onClick={() => startEdit(p)} style={{ background: 'none', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '1rem', opacity: 0.8 }} title="Editar jugador">✏️</button>
+                            </>
+                          )}
+                          <button 
+                            onClick={() => removePlayerFromEvent(p.name, reg.id)} 
+                            style={{ background: 'none', border: 'none', color: 'var(--crimson-red)', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.7 }} 
+                            title="Quitar del Evento"
+                          >
+                            &times;
+                          </button>
                         </div>
                       </li>
                     );
