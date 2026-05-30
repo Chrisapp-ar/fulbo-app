@@ -2842,8 +2842,8 @@ const Dashboard = ({ userId, onLogout }) => {
                             </div>
                           )}
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', textDecoration: p.financial?.isBanned ? 'line-through' : 'none', color: p.financial?.isBanned ? 'var(--crimson-red)' : 'white' }}>
-                              {p.name} {p.financial?.isBanned && '🟥'}
+                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: 'white' }}>
+                              {p.name}
                             </span>
                             <span style={{ fontSize: '0.7rem', color: p.role === 'Ancla' ? 'var(--electric-cyan)' : 'var(--off-white)' }}>{p.role}</span>
                           </div>
