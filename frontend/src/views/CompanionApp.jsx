@@ -786,13 +786,26 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         </div>
       )}
 
-      <header style={{ marginBottom: '1.2rem', textAlign: 'center' }}>
+      <header style={{ marginBottom: '1.5rem', textAlign: 'center', perspective: '800px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <img src="/logo.png" alt="FULBO Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 0 10px rgba(204,255,0,0.8))' }} />
-            <h1 className="glow-text-volt" style={{ fontSize: '1.8rem', margin: 0, fontStyle: 'italic', fontWeight: '900', letterSpacing: '1px' }}>FULBO</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <img 
+              src="/logo.png" 
+              alt="FULBO Logo" 
+              style={{ 
+                width: '50px', 
+                height: '50px', 
+                objectFit: 'contain', 
+                filter: 'drop-shadow(0 8px 12px rgba(204,255,0,0.6)) drop-shadow(0 3px 4px rgba(0,0,0,0.8))', 
+                transform: 'rotateY(20deg) rotateX(15deg) translateZ(10px)' 
+              }} 
+            />
+            <h1 style={{ fontSize: '2.2rem', margin: 0, fontStyle: 'italic', fontWeight: '900', letterSpacing: '1.5px', background: 'linear-gradient(135deg, var(--volt-lime) 0%, #ffffff 40%, var(--electric-cyan) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 4px 5px rgba(0,0,0,0.6))' }}>FULBO</h1>
           </div>
-          <span style={{ color: 'var(--electric-cyan)', fontSize: '0.55rem', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 'bold' }}>THE ELITE MATCHMAKING ENGINE</span>
+          <span style={{ color: 'var(--electric-cyan)', fontSize: '0.6rem', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: '900', marginTop: '0.4rem', textShadow: '0 0 10px rgba(0, 240, 255, 0.8)' }}>THE ELITE MATCHMAKING ENGINE</span>
+          <p style={{ color: 'var(--off-white)', letterSpacing: '1px', textTransform: 'uppercase', marginTop: '0.4rem', fontWeight: '600', fontSize: '0.65rem', opacity: 0.8 }}>
+            Powered by La FactorIA
+          </p>
         </div>
       </header>
 
