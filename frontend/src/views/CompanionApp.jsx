@@ -65,6 +65,11 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   // States for reveal animation
   const [teamsRevealed, setTeamsRevealed] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [showPackOpening, setShowPackOpening] = useState(false);
+  const [walkoutRevealStage, setWalkoutRevealStage] = useState(0);
+  const [walkoutPlayers, setWalkoutPlayers] = useState([]);
+  const [isDrafting, setIsDrafting] = useState(false);
+  const [revealedCount, setRevealedCount] = useState(0);
 
   // Derived computed values
   const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id));
@@ -94,6 +99,21 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     }
   }, [selectedPlayer, isEditingSelf]);
 
+  const calcRawOvr = (stats) => {
+    if (!stats) return 75;
+    return Math.round(((stats.pac || 75) + (stats.sho || 75) + (stats.pas || 75) + (stats.dri || 75) + (stats.def || 75) + (stats.phy || 75)) / 6);
+  };
+  const calcOvr = (p) => {
+    if (!p) return 75;
+    const raw = calcRawOvr(p.stats);
+    const stam = p.condition?.stamina ?? 100;
+    return Math.round(raw * (0.5 + (0.5 * (stam / 100))));
+  };
+  const calcHybridScore = (p) => {
+    if (!p) return 75;
+    return (calcOvr(p) + ((p.glicko?.rating || 1500) / 20)) / 2;
+  };
+
   // Auto-open registration form in active lobby for unregistered guests
   useEffect(() => {
     if (!loading && activeEvent?.status === 'lobby' && !isUserRegistered && !hasAutoOpened && uniqueRegistrations.length < (activeEvent.format || 100)) {
@@ -110,12 +130,29 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   }, [activeEvent?.status]);
 
   const handleRevealTeams = () => {
-    setIsRevealing(true);
-    setTimeout(() => {
-      setIsRevealing(false);
-      setTeamsRevealed(true);
-    }, 2500);
+    const tA = activeEvent?.teamA || [];
+    const tB = activeEvent?.teamB || [];
+    const topA = [...tA].sort((a,b) => calcHybridScore(b) - calcHybridScore(a)).slice(0, 2);
+    const topB = [...tB].sort((a,b) => calcHybridScore(b) - calcHybridScore(a)).slice(0, 2);
+    
+    setWalkoutPlayers([...topA, ...topB]);
+    setShowPackOpening(true);
+    setWalkoutRevealStage(0);
   };
+
+  useEffect(() => {
+    if (isDrafting && activeEvent?.teamA && activeEvent?.teamB) {
+      const totalPlayers = activeEvent.teamA.length + activeEvent.teamB.length;
+      if (revealedCount < totalPlayers) {
+        const timer = setTimeout(() => {
+          setRevealedCount(prev => prev + 1);
+        }, 400);
+        return () => clearTimeout(timer);
+      } else {
+        setIsDrafting(false);
+      }
+    }
+  }, [isDrafting, revealedCount, activeEvent]);
   
   const handleRegSubmit = async (e) => {
     e.preventDefault();
@@ -774,7 +811,117 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '1rem 0.5rem 80px 0.5rem', fontFamily: 'var(--font-secondary)' }}>
       <div style={{ display: 'none' }} />
 
-      {paymentSuccessMsg && (
+      {showPackOpening && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'radial-gradient(circle at center, #0F0F16 0%, #050507 100%)',
+          zIndex: 10000,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          overflow: 'hidden'
+        }}>
+          {walkoutRevealStage === 0 && (
+            <div style={{ zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
+              <h2 className="glow-text-volt" style={{ fontSize: '2.2rem', letterSpacing: '4px', fontStyle: 'italic', fontWeight: '900' }}>
+                DRAFT PACK OPENING
+              </h2>
+              <p style={{ color: 'var(--electric-cyan)', letterSpacing: '2px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                LA IA HA GENERADO EL BALANCEO
+              </p>
+              
+              <div 
+                onClick={() => {
+                  setWalkoutRevealStage(1);
+                  setTimeout(() => {
+                    setWalkoutRevealStage(2);
+                  }, 1200);
+                }}
+                className="pack-pulsating"
+                style={{
+                  width: '160px',
+                  height: '240px',
+                  background: 'linear-gradient(135deg, #FFD700 0%, #B8860B 50%, #8B6508 100%)',
+                  border: '3px solid #FFF',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '1.5rem 1rem',
+                  boxShadow: '0 0 30px rgba(255,215,0,0.4)',
+                  transform: 'perspective(1000px) rotateY(-10deg) rotateX(10deg)',
+                  transition: 'transform 0.3s',
+                }}
+              >
+                <div style={{ border: '1px solid rgba(255,255,255,0.4)', width: '100%', height: '100%', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 0.5rem' }}>
+                  <div style={{ color: 'white', fontWeight: '900', fontSize: '1.4rem', fontStyle: 'italic', letterSpacing: '2px', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>DRAFT</div>
+                  <div style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.6))' }}>✨</div>
+                  <div style={{ color: 'white', fontSize: '0.7rem', fontWeight: 'bold', letterSpacing: '3px' }}>OPEN</div>
+                </div>
+              </div>
+              
+              <p style={{ color: 'var(--off-white)', letterSpacing: '1px', fontSize: '0.7rem', marginTop: '1rem', animation: 'pulse 1.5s infinite' }}>
+                TOCA PARA REVELAR
+              </p>
+            </div>
+          )}
+
+          {walkoutRevealStage === 1 && (
+            <div style={{ zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: '#FFF', animation: 'pulse 0.1s infinite' }}>
+              <div className="pack-glitch" style={{ fontSize: '3rem', fontWeight: '900', color: 'black', fontStyle: 'italic', letterSpacing: '4px', textAlign: 'center' }}>
+                ABRIENDO SOBRE...
+              </div>
+            </div>
+          )}
+
+          {walkoutRevealStage === 2 && walkoutPlayers && walkoutPlayers.length > 0 && (
+            <div style={{ zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '100vw', textAlign: 'center' }}>
+              <h2 className="glow-text-volt" style={{ fontSize: '1.8rem', fontWeight: '900', fontStyle: 'italic', margin: 0, letterSpacing: '2px' }}>
+                ⭐ TOP JUGADORES IA ⭐
+              </h2>
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', padding: '0 10px' }}>
+                {walkoutPlayers.map((wp, i) => (
+                  <div key={i} className="card-reveal-anim" style={{ transform: 'scale(0.75)', margin: '-20px', filter: i < 2 ? 'drop-shadow(0 0 20px rgba(204,255,0,0.3))' : 'drop-shadow(0 0 20px rgba(0,240,255,0.3))' }}>
+                    <PlayerCard 
+                      name={wp.name}
+                      position={wp.role.substring(0,3).toUpperCase()}
+                      stats={wp.stats}
+                      avatar={wp.avatar}
+                      ovr={calcOvr(wp)}
+                      stamina={wp.condition?.stamina ?? 100}
+                      badges={getPlayerBadges(wp)}
+                      isInjured={wp.condition?.isResting}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: '1rem' }}>
+                <button 
+                  onClick={() => {
+                    setShowPackOpening(false);
+                    setIsDrafting(true);
+                    setRevealedCount(0);
+                  }} 
+                  className="btn-primary" 
+                  style={{ width: 'auto', padding: '1rem 2rem', fontSize: '1rem', boxShadow: '0 0 20px rgba(204,255,0,0.4)' }}
+                >
+                  VER EQUIPOS COMPLETOS ⏭️
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}      {paymentSuccessMsg && (
         <div style={{
           background: 'rgba(37,211,102,0.1)',
           border: '2px solid #25D366',
@@ -1196,12 +1343,17 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', animation: 'fadeIn 0.5s ease-out' }}>
+                      {isDrafting && (
+                        <h2 style={{ color: 'var(--crimson-red)', letterSpacing: '2px', fontSize: '1rem', animation: 'pulse 1s infinite', textAlign: 'center', margin: 0 }}>
+                          🔴 REVELANDO EQUIPOS...
+                        </h2>
+                      )}
                     {/* Team A */}
                     {activeEvent.teamA && (
                       <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px' }}>
                         <h4 className="glow-text-volt" style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>EQUIPO A</h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          {activeEvent.teamA.map(p => (
+                          {activeEvent.teamA.slice(0, Math.ceil(revealedCount / 2)).map(p => (
                             <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
                               <span>{p.avatar || '👤'}</span>
                               <span style={{ fontWeight: 'bold' }}>{p.name}</span>
@@ -1217,7 +1369,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                       <div style={{ background: 'rgba(0,240,255,0.02)', border: '1px solid rgba(0,240,255,0.1)', padding: '1rem', borderRadius: '8px' }}>
                         <h4 className="glow-text-cyan" style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>EQUIPO B</h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          {activeEvent.teamB.map(p => (
+                          {activeEvent.teamB.slice(0, Math.floor(revealedCount / 2)).map(p => (
                             <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
                               <span>{p.avatar || '👤'}</span>
                               <span style={{ fontWeight: 'bold' }}>{p.name}</span>
