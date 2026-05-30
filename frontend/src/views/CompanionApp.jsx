@@ -637,7 +637,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
             </div>
           ) : (
             <>
-              <div style={{ transform: 'scale(1.05)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ transform: 'scale(0.8)', transformOrigin: 'top center', display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '-40px' }}>
                 <PlayerCard 
                    name={selectedPlayer.name} 
                    position={selectedPlayer.role.substring(0,3).toUpperCase()} 
@@ -752,7 +752,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '2rem 1rem', fontFamily: 'var(--font-secondary)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '1rem 0.5rem 80px 0.5rem', fontFamily: 'var(--font-secondary)' }}>
       {/* Cerrar Sesión */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem', maxWidth: '600px', margin: '0 auto 1.5rem auto' }}>
         <button 
@@ -807,13 +807,13 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         </div>
       )}
 
-      <header style={{ marginBottom: '2rem', textAlign: 'center' }}>
+      <header style={{ marginBottom: '1.2rem', textAlign: 'center' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <img src="/logo.png" alt="FULBO Logo" style={{ width: '60px', height: '60px', objectFit: 'contain', filter: 'drop-shadow(0 0 10px rgba(204,255,0,0.8))' }} />
-            <h1 className="glow-text-volt" style={{ fontSize: '2.5rem', margin: 0, fontStyle: 'italic', fontWeight: '900', letterSpacing: '1px' }}>FULBO</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <img src="/logo.png" alt="FULBO Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 0 10px rgba(204,255,0,0.8))' }} />
+            <h1 className="glow-text-volt" style={{ fontSize: '1.8rem', margin: 0, fontStyle: 'italic', fontWeight: '900', letterSpacing: '1px' }}>FULBO</h1>
           </div>
-          <span style={{ color: 'var(--electric-cyan)', fontSize: '0.65rem', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 'bold' }}>THE ELITE MATCHMAKING ENGINE</span>
+          <span style={{ color: 'var(--electric-cyan)', fontSize: '0.55rem', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 'bold' }}>THE ELITE MATCHMAKING ENGINE</span>
         </div>
       </header>
 
@@ -824,111 +824,119 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           className="glass-panel" 
           style={{ 
             maxWidth: '600px', 
-            margin: '0 auto 2rem auto', 
-            padding: '1.2rem', 
+            margin: '0 auto 1.5rem auto', 
+            padding: '0.8rem 1rem', 
             border: '1px solid var(--ultimate-gold)', 
             background: 'rgba(255, 215, 0, 0.05)', 
             cursor: 'pointer', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between',
-            borderRadius: '12px',
-            boxShadow: '0 0 15px rgba(255,215,0,0.15)',
+            borderRadius: '10px',
+            boxShadow: '0 0 10px rgba(255,215,0,0.1)',
             transition: 'transform 0.2s'
           }}
           onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
           onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ fontSize: '2rem' }}>🏆</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>🏆</span>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ color: 'var(--ultimate-gold)', fontWeight: 'bold', fontSize: '1rem', letterSpacing: '1px', fontFamily: 'var(--font-primary)' }}>MI FICHA TÁCTICA</div>
-              <div style={{ color: 'white', fontSize: '0.85rem' }}>Ver mi carta, rating {Math.round(myPlayerCard.glicko?.rating || 1500)} MMR e historial personal</div>
+              <div style={{ color: 'var(--ultimate-gold)', fontWeight: 'bold', fontSize: '0.85rem', letterSpacing: '0.5px', fontFamily: 'var(--font-primary)' }}>MI FICHA TÁCTICA</div>
+              <div style={{ color: 'white', fontSize: '0.75rem' }}>Ver mi carta y stats ({Math.round(myPlayerCard.glicko?.rating || 1500)} MMR)</div>
             </div>
           </div>
-          <span style={{ color: 'var(--ultimate-gold)', fontSize: '1.5rem' }}>➔</span>
+          <span style={{ color: 'var(--ultimate-gold)', fontSize: '1.2rem' }}>➔</span>
         </div>
       )}
 
-      {/* Selector de Pestañas */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem auto', flexWrap: 'wrap' }}>
-        <button 
-          onClick={() => setActiveTab('leaderboard')}
-          style={{
-            flex: '1 1 45%',
-            background: activeTab === 'leaderboard' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
-            color: activeTab === 'leaderboard' ? 'black' : 'white',
-            border: 'none',
-            padding: '0.6rem 0.4rem',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontFamily: 'var(--font-primary)',
-            fontSize: '0.8rem',
-            transition: 'all 0.2s',
-            borderBottom: activeTab === 'leaderboard' ? '3px solid var(--electric-cyan)' : 'none'
-          }}
-        >
-          🏆 LEADERBOARD MMR
-        </button>
+      {/* Barra de Navegación Inferior */}
+      <nav style={{ 
+        position: 'fixed', 
+        bottom: 0, 
+        left: 0, 
+        right: 0, 
+        background: 'rgba(10,10,15,0.95)', 
+        backdropFilter: 'blur(10px)', 
+        borderTop: '1px solid rgba(255,255,255,0.1)', 
+        display: 'flex', 
+        justifyContent: 'space-around', 
+        padding: '0.6rem 0.5rem', 
+        paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom))',
+        zIndex: 1000 
+      }}>
         <button 
           onClick={() => setActiveTab('active_matches')}
           style={{
-            flex: '1 1 45%',
-            background: activeTab === 'active_matches' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
-            color: activeTab === 'active_matches' ? 'black' : 'white',
+            background: 'transparent',
+            color: activeTab === 'active_matches' ? 'var(--volt-lime)' : 'var(--off-white)',
             border: 'none',
-            padding: '0.6rem 0.4rem',
-            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.3rem',
             cursor: 'pointer',
-            fontWeight: 'bold',
-            fontFamily: 'var(--font-primary)',
-            fontSize: '0.8rem',
-            transition: 'all 0.2s',
-            borderBottom: activeTab === 'active_matches' ? '3px solid var(--electric-cyan)' : 'none'
+            flex: 1
           }}
         >
-          📅 PARTIDOS CREADOS
+          <span style={{ fontSize: '1.4rem' }}>📅</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Partidos</span>
         </button>
+
+        <button 
+          onClick={() => setActiveTab('leaderboard')}
+          style={{
+            background: 'transparent',
+            color: activeTab === 'leaderboard' ? 'var(--volt-lime)' : 'var(--off-white)',
+            border: 'none',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.3rem',
+            cursor: 'pointer',
+            flex: 1
+          }}
+        >
+          <span style={{ fontSize: '1.4rem' }}>🏆</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Ranking</span>
+        </button>
+
         <button 
           onClick={() => setActiveTab('history')}
           style={{
-            flex: '1 1 45%',
-            background: activeTab === 'history' ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
-            color: activeTab === 'history' ? 'black' : 'white',
+            background: 'transparent',
+            color: activeTab === 'history' ? 'var(--volt-lime)' : 'var(--off-white)',
             border: 'none',
-            padding: '0.6rem 0.4rem',
-            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.3rem',
             cursor: 'pointer',
-            fontWeight: 'bold',
-            fontFamily: 'var(--font-primary)',
-            fontSize: '0.8rem',
-            transition: 'all 0.2s',
-            borderBottom: activeTab === 'history' ? '3px solid var(--electric-cyan)' : 'none'
+            flex: 1
           }}
         >
-          📚 HISTÓRICO
+          <span style={{ fontSize: '1.4rem' }}>📚</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Historial</span>
         </button>
+
         <button 
           onClick={() => setActiveTab('hospital')}
           style={{
-            flex: '1 1 45%',
-            background: activeTab === 'hospital' ? 'linear-gradient(135deg, #FF3B30 0%, #8b0000 100%)' : 'rgba(255,255,255,0.05)',
-            color: 'white',
+            background: 'transparent',
+            color: activeTab === 'hospital' ? '#FF3B30' : 'var(--off-white)',
             border: 'none',
-            padding: '0.6rem 0.4rem',
-            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.3rem',
             cursor: 'pointer',
-            fontWeight: 'bold',
-            fontFamily: 'var(--font-primary)',
-            fontSize: '0.8rem',
-            transition: 'all 0.2s',
-            borderBottom: activeTab === 'hospital' ? '3px solid var(--crimson-red)' : 'none'
+            flex: 1
           }}
         >
-          🏥 HOSPITAL
+          <span style={{ fontSize: '1.4rem' }}>🏥</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Clínica</span>
         </button>
-      </div>
+      </nav>
 
       {activeTab === 'active_matches' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
@@ -1173,8 +1181,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
               )}
             </div>
           ) : (
-            <div className="glass-panel" style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
-              <span style={{ fontSize: '3rem' }}>📅</span>
+            <div className="glass-panel" style={{ padding: '2rem 1rem', textAlign: 'center' }}>
+              <span style={{ fontSize: '2rem' }}>📅</span>
               <h3 style={{ color: 'white', marginTop: '1rem' }}>No hay partidos programados</h3>
               <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', margin: '0.5rem 0 0 0' }}>
                 Ponte en contacto con el administrador del club para que programe la próxima fecha.
@@ -1234,8 +1242,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
 
             if (sortedRoster.length === 0) {
               return (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                  <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚽</div>
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚽</div>
                   <p style={{ margin: 0, fontSize: '0.9rem' }}>No hay jugadores en esta categoría.</p>
                 </div>
               );
@@ -1378,8 +1386,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       {activeTab === 'history' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '600px', margin: '0 auto' }}>
           {matchHistory.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📚</div>
+            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📚</div>
               <p style={{ margin: 0, fontSize: '0.9rem' }}>No hay partidos disputados registrados aún.</p>
             </div>
           ) : (
@@ -1430,8 +1438,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
             </div>
           </div>
           {roster.filter(p => p.condition?.isResting).length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>💚</div>
+            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💚</div>
               <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>¡Sin lesionados en el club!</p>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--off-white)' }}>Todos los jugadores están sanos y listos para jugar.</p>
             </div>
