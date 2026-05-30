@@ -921,9 +921,15 @@ const Dashboard = ({ userId, onLogout }) => {
     const isRegistered = eventRegistrations.some(reg => reg.name.toLowerCase().trim() === p.name.toLowerCase().trim());
     if (isRegistered) return;
 
+    // Check if player ID is a valid UUID before sending it to Supabase
+    const isUuid = (str) => {
+      if (!str) return false;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    };
+
     const newReg = {
       host_id: hostId,
-      player_id: p.id,
+      player_id: isUuid(p.id) ? p.id : null,
       name: p.name,
       role: p.role,
       stats: p.stats,
@@ -934,6 +940,7 @@ const Dashboard = ({ userId, onLogout }) => {
       const { error } = await supabase.from('event_registrations').insert(newReg);
       if (error) {
         console.error("Error adding player to event:", error);
+        alert("Error al convocar al jugador: " + error.message);
       }
     } else {
       setEventRegistrations(prev => [...prev, { ...newReg, id: Date.now().toString() }]);
