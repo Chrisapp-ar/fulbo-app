@@ -753,28 +753,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '1rem 0.5rem 80px 0.5rem', fontFamily: 'var(--font-secondary)' }}>
-      {/* Cerrar Sesión */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem', maxWidth: '600px', margin: '0 auto 1.5rem auto' }}>
-        <button 
-          onClick={onLogout} 
-          style={{ 
-            background: 'transparent', 
-            border: '1px solid var(--crimson-red)', 
-            color: 'var(--crimson-red)', 
-            padding: '0.4rem 1.2rem', 
-            borderRadius: '4px', 
-            cursor: 'pointer', 
-            fontSize: '0.8rem',
-            fontFamily: 'var(--font-primary)',
-            fontWeight: 'bold',
-            transition: 'all 0.2s'
-          }}
-          onMouseEnter={(e) => { e.target.style.background = 'var(--crimson-red)'; e.target.style.color = 'white'; }}
-          onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = 'var(--crimson-red)'; }}
-        >
-          CERRAR SESIÓN
-        </button>
-      </div>
+      <div style={{ display: 'none' }} />
 
       {paymentSuccessMsg && (
         <div style={{
@@ -935,6 +914,24 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         >
           <span style={{ fontSize: '1.4rem' }}>🏥</span>
           <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Clínica</span>
+        </button>
+
+        <button 
+          onClick={onLogout}
+          style={{
+            background: 'transparent',
+            color: 'var(--crimson-red)',
+            border: 'none',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.3rem',
+            cursor: 'pointer',
+            flex: 1
+          }}
+        >
+          <span style={{ fontSize: '1.4rem' }}>🚪</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Salir</span>
         </button>
       </nav>
 

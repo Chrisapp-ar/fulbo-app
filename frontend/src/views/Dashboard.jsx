@@ -2530,6 +2530,13 @@ const Dashboard = ({ userId, onLogout }) => {
             >
               🔗 COMPARTIR LIGA
             </button>
+            <button 
+              onClick={onLogout} 
+              className="nav-tab-btn" 
+              style={{ border: '1px solid var(--crimson-red)', color: 'var(--crimson-red)' }}
+            >
+              🚪 SALIR
+            </button>
 
             {/* Notification Bell */}
             {activeEvent && (
@@ -2608,7 +2615,7 @@ const Dashboard = ({ userId, onLogout }) => {
               </div>
             )}
           </div>
-          <button onClick={onLogout} style={{ background: 'transparent', border: '1px solid var(--crimson-red)', color: 'var(--crimson-red)', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontFamily: 'var(--font-primary)' }}>CERRAR SESIÓN</button>
+          <div style={{ display: 'none' }} />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '-1rem' }}>
