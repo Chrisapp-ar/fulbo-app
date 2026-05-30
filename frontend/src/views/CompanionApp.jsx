@@ -35,7 +35,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   
   // Tabs navigation
-  const [activeTab, setActiveTab] = useState('leaderboard'); // 'leaderboard' | 'history'
+  const [activeTab, setActiveTab] = useState('active_matches'); // 'leaderboard' | 'history' | 'active_matches' | 'hospital'
   const [leaderboardFilter, setLeaderboardFilter] = useState('active');
   
   // Subscription state
@@ -53,12 +53,34 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [regAvatar, setRegAvatar] = useState('👤');
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState(false);
   const [eventRegistrations, setEventRegistrations] = useState([]);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
+
+  // Derived computed values
+  const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id));
+
+  const uniqueRegistrationsMap = {};
+  eventRegistrations.forEach(r => {
+    if (r && r.name) {
+      uniqueRegistrationsMap[r.name.toLowerCase().trim()] = r;
+    }
+  });
+  const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
+
+  const isUserRegistered = uniqueRegistrations.some(r => r.player_id === currentUser?.id || (r.name && currentUser?.user_metadata?.full_name && r.name.toLowerCase().trim() === currentUser.user_metadata.full_name.toLowerCase().trim()));
 
   useEffect(() => {
     if (currentUser?.user_metadata?.full_name && !regName) {
       setRegName(currentUser.user_metadata.full_name);
     }
   }, [currentUser]);
+
+  // Auto-open registration form in active lobby for unregistered guests
+  useEffect(() => {
+    if (!loading && activeEvent?.status === 'lobby' && !isUserRegistered && !hasAutoOpened && uniqueRegistrations.length < (activeEvent.format || 100)) {
+      setIsRegistering(true);
+      setHasAutoOpened(true);
+    }
+  }, [loading, activeEvent, isUserRegistered, hasAutoOpened, uniqueRegistrations.length]);
   
   const handleRegSubmit = async (e) => {
     e.preventDefault();
@@ -499,18 +521,6 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     return new Date() > dayAfterEvent;
   };
 
-  const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id));
-
-  const uniqueRegistrationsMap = {};
-  eventRegistrations.forEach(r => {
-    if (r && r.name) {
-      uniqueRegistrationsMap[r.name.toLowerCase().trim()] = r;
-    }
-  });
-  const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
-
-  const isUserRegistered = uniqueRegistrations.some(r => r.player_id === currentUser?.id || (r.name && currentUser?.user_metadata?.full_name && r.name.toLowerCase().trim() === currentUser.user_metadata.full_name.toLowerCase().trim()));
-
   return (
     <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '2rem 1rem', fontFamily: 'var(--font-secondary)' }}>
       {/* Cerrar Sesión */}
@@ -629,7 +639,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
             borderBottom: activeTab === 'leaderboard' ? '3px solid var(--electric-cyan)' : 'none'
           }}
         >
-          🏆 POSICIONES (MMR)
+          🏆 LEADERBOARD MMR
         </button>
         <button 
           onClick={() => setActiveTab('active_matches')}
@@ -1004,27 +1014,129 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
             return sortedRoster.map((p, idx) => {
               const pj = p.history?.pj || 0;
               const pg = p.history?.pg || 0;
+              const pe = p.history?.pe || 0;
+              const pp = p.history?.pp || 0;
+              const goals = p.history?.goals || 0;
               const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
               const mmr = Math.round(p.glicko?.rating || 1500);
               
               return (
-                <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span style={{ color: idx < 3 ? 'var(--ultimate-gold)' : 'var(--off-white)', fontWeight: 'bold', fontSize: '1.2rem', width: '20px' }}>{idx + 1}</span>
-                    <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                      {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
+                <div 
+                  key={p.id} 
+                  onClick={() => setSelectedPlayer(p)} 
+                  className="glass-panel"
+                  style={{ 
+                    borderRadius: '16px', 
+                    padding: '1.2rem', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    gap: '0.8rem', 
+                    border: '1px solid rgba(255,255,255,0.08)', 
+                    background: 'rgba(255,255,255,0.03)',
+                    backdropFilter: 'blur(10px)',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 20px rgba(204,255,0,0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(204,255,0,0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                  }}
+                >
+                  {/* Top Header Row */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                      {/* Rank Indicator */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        width: '28px', 
+                        height: '28px', 
+                        borderRadius: '50%',
+                        background: idx === 0 ? 'rgba(255, 215, 0, 0.2)' : idx === 1 ? 'rgba(192, 192, 192, 0.2)' : idx === 2 ? 'rgba(205, 127, 50, 0.2)' : 'rgba(255,255,255,0.05)',
+                        border: idx === 0 ? '1px solid var(--ultimate-gold)' : idx === 1 ? '1px solid #c0c0c0' : idx === 2 ? '1px solid #cd7f32' : '1px solid rgba(255,255,255,0.1)',
+                        color: idx === 0 ? 'var(--ultimate-gold)' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : 'var(--off-white)',
+                        fontWeight: 'bold', 
+                        fontSize: '0.9rem' 
+                      }}>
+                        {idx + 1}
+                      </div>
+
+                      {/* Avatar */}
+                      <div style={{ 
+                        width: '45px', 
+                        height: '45px', 
+                        borderRadius: '50%', 
+                        background: 'black', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        overflow: 'hidden',
+                        border: '1px solid rgba(255,255,255,0.1)'
+                      }}>
+                        {p.avatar?.startsWith('data:image') ? (
+                          <img src={p.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                        ) : (
+                          <span style={{ fontSize: '1.4rem' }}>{p.avatar || '👤'}</span>
+                        )}
+                      </div>
+
+                      {/* Name and Role */}
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          {p.name}
+                          {idx === 0 && <span style={{ fontSize: '1rem' }}>👑</span>}
+                        </div>
+                        <div style={{ color: 'var(--off-white)', fontSize: '0.75rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          {p.role}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{p.name}</div>
-                      <div style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>
-                        {p.role} | {pj} PJ ({pg}G / {p.history?.pe || 0}E / {p.history?.pp || 0}P)
+
+                    {/* MMR and Win Rate */}
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="glow-text-volt" style={{ fontSize: '1.3rem', fontWeight: '900', fontFamily: 'var(--font-primary)' }}>
+                        {mmr} <span style={{ fontSize: '0.7rem', color: 'var(--off-white)', fontWeight: 'normal' }}>MMR</span>
+                      </div>
+                      <div style={{ color: 'var(--electric-cyan)', fontSize: '0.75rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                        {winRate}% WR
                       </div>
                     </div>
                   </div>
-                  
-                  <div style={{ textAlign: 'right' }}>
-                    <div className="glow-text-volt" style={{ fontSize: '1.3rem', fontWeight: '900' }}>{mmr}</div>
-                    <div style={{ color: 'var(--electric-cyan)', fontSize: '0.75rem', fontWeight: 'bold' }}>{winRate}% WR</div>
+
+                  {/* Divider line */}
+                  <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '0.2rem 0' }} />
+
+                  {/* Stats Grid Footer */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem', textAlign: 'center' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                      <div style={{ color: 'var(--off-white)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PJ</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'white' }}>{pj}</div>
+                    </div>
+                    <div style={{ background: 'rgba(204,255,0,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(204,255,0,0.05)' }}>
+                      <div style={{ color: 'var(--volt-lime)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PG</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'var(--volt-lime)' }}>{pg}</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                      <div style={{ color: 'var(--off-white)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PE</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'white' }}>{pe}</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,59,48,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(255,59,48,0.05)' }}>
+                      <div style={{ color: 'var(--crimson-red)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PP</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'var(--crimson-red)' }}>{pp}</div>
+                    </div>
+                    <div style={{ background: 'rgba(0,240,255,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(0,240,255,0.05)' }}>
+                      <div style={{ color: 'var(--electric-cyan)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>GOLES</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'var(--electric-cyan)' }}>{goals}</div>
+                    </div>
                   </div>
                 </div>
               );
