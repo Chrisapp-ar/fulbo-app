@@ -707,13 +707,20 @@ const Dashboard = ({ userId, onLogout }) => {
               if (JSON.stringify(curr) === JSON.stringify(nextEvent)) {
                 return curr; // De-duplicar para evitar bucle
               }
-              // Si cambia el estado en la nube a preview/match y no tenemos los equipos locales, cargarlos
-              if (nextEvent && nextEvent.status === 'preview') {
+              if (!nextEvent) {
+                // Clear local states if event was deleted/finished on another device
+                setTeamA([]);
+                setTeamB([]);
+                setPitchCost('');
+                setPaymentsMap({});
+                setMatchScore({ A: 0, B: 0 });
+                setPlayerGoals({});
+              } else if (nextEvent.status === 'preview') {
                 setTeamA(nextEvent.teamA || []);
                 setTeamB(nextEvent.teamB || []);
                 setPitchCost(nextEvent.pitchCost || '');
                 setPaymentsMap(nextEvent.paymentsMap || {});
-              } else if (nextEvent && nextEvent.status === 'match') {
+              } else if (nextEvent.status === 'match') {
                 setTeamA(nextEvent.teamA || []);
                 setTeamB(nextEvent.teamB || []);
                 setPitchCost(nextEvent.pitchCost || '');
@@ -741,6 +748,12 @@ const Dashboard = ({ userId, onLogout }) => {
         // Auto-delete / archive expired event (day after the event has passed)
         setActiveEvent(null);
         setEventRegistrations([]);
+        setTeamA([]);
+        setTeamB([]);
+        setPitchCost('');
+        setPaymentsMap({});
+        setMatchScore({ A: 0, B: 0 });
+        setPlayerGoals({});
         if (isSupabaseConfigured && supabase) {
           supabase.from('league_state').update({ active_event: null, updated_at: new Date().toISOString() }).eq('host_id', hostId).then();
           supabase.from('event_registrations').delete().eq('host_id', hostId).then();
@@ -1567,6 +1580,10 @@ const Dashboard = ({ userId, onLogout }) => {
     setMatchHistory(prev => [resultObj, ...prev]);
     setPitchCost('');
     setPaymentsMap({});
+    setTeamA([]);
+    setTeamB([]);
+    setMatchScore({ A: 0, B: 0 });
+    setPlayerGoals({});
     setViewMode('stats');
     
     if (activeEvent) {
@@ -2574,7 +2591,17 @@ const Dashboard = ({ userId, onLogout }) => {
             ) : (
                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                   <span style={{ color: 'var(--off-white)' }}>{activeEvent.date} {activeEvent.time} | Formato {activeEvent.format} jug.</span>
-                  <button onClick={() => { setActiveEvent(null); setEventRegistrations([]); if(isSupabaseConfigured && supabase) supabase.from('event_registrations').delete().eq('host_id', hostId).then(); }} style={{ ...btnSec, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)' }}>CANCELAR EVENTO</button>
+                  <button onClick={() => { 
+                    setActiveEvent(null); 
+                    setEventRegistrations([]); 
+                    setTeamA([]);
+                    setTeamB([]);
+                    setPitchCost('');
+                    setPaymentsMap({});
+                    setMatchScore({ A: 0, B: 0 });
+                    setPlayerGoals({});
+                    if(isSupabaseConfigured && supabase) supabase.from('event_registrations').delete().eq('host_id', hostId).then(); 
+                  }} style={{ ...btnSec, borderColor: 'var(--crimson-red)', color: 'var(--crimson-red)' }}>CANCELAR EVENTO</button>
                </div>
             )}
          </div>
