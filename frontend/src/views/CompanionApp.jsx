@@ -62,6 +62,10 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [editAvatar, setEditAvatar] = useState('👤');
   const [editStats, setEditStats] = useState({ pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
 
+  // States for reveal animation
+  const [teamsRevealed, setTeamsRevealed] = useState(false);
+  const [isRevealing, setIsRevealing] = useState(false);
+
   // Derived computed values
   const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id));
 
@@ -97,6 +101,21 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       setHasAutoOpened(true);
     }
   }, [loading, activeEvent, isUserRegistered, hasAutoOpened, uniqueRegistrations.length]);
+  
+  useEffect(() => {
+    if (activeEvent?.status === 'lobby') {
+      setTeamsRevealed(false);
+      setIsRevealing(false);
+    }
+  }, [activeEvent?.status]);
+
+  const handleRevealTeams = () => {
+    setIsRevealing(true);
+    setTimeout(() => {
+      setIsRevealing(false);
+      setTeamsRevealed(true);
+    }, 2500);
+  };
   
   const handleRegSubmit = async (e) => {
     e.preventDefault();
@@ -1154,7 +1173,29 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                   )}
 
                   {/* Balanced Teams Grid */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                  {activeEvent.status === 'preview' && !teamsRevealed ? (
+                    <div className="glass-panel" style={{ textAlign: 'center', padding: '2rem 1rem', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', background: 'rgba(0,0,0,0.4)' }}>
+                      {isRevealing ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{ width: '50px', height: '50px', border: '4px solid rgba(204,255,0,0.1)', borderTop: '4px solid var(--volt-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                          <h3 className="glow-text-volt" style={{ animation: 'pulse 1.5s infinite', margin: 0, fontFamily: 'var(--font-primary)' }}>CALCULANDO TÁCTICAS IA...</h3>
+                          <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', margin: 0 }}>Barajando posiciones y equilibrando MMR</p>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem', animation: 'fadeIn 0.4s' }}>
+                          <span style={{ fontSize: '3.5rem', filter: 'grayscale(1)', opacity: 0.6 }}>🕵️‍♂️</span>
+                          <div>
+                            <h3 style={{ color: 'white', margin: '0 0 0.5rem 0', fontSize: '1.4rem' }}>¡Los equipos están listos!</h3>
+                            <p style={{ color: 'var(--off-white)', fontSize: '0.9rem', margin: 0 }}>El administrador ha finalizado el armado.</p>
+                          </div>
+                          <button onClick={handleRevealTeams} className="btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.1rem', width: '100%', boxShadow: '0 0 15px rgba(204,255,0,0.3)' }}>
+                            DESCUBRIR EQUIPOS
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', animation: 'fadeIn 0.5s ease-out' }}>
                     {/* Team A */}
                     {activeEvent.teamA && (
                       <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px' }}>
@@ -1187,6 +1228,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               )}
             </div>
