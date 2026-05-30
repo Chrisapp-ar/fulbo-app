@@ -55,6 +55,13 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [eventRegistrations, setEventRegistrations] = useState([]);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
+  // States for guest player self-editing
+  const [isEditingSelf, setIsEditingSelf] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState('Mediocampo');
+  const [editAvatar, setEditAvatar] = useState('👤');
+  const [editStats, setEditStats] = useState({ pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
+
   // Derived computed values
   const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id));
 
@@ -73,6 +80,15 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       setRegName(currentUser.user_metadata.full_name);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (selectedPlayer && isEditingSelf) {
+      setEditName(selectedPlayer.name);
+      setEditRole(selectedPlayer.role || 'Mediocampo');
+      setEditAvatar(selectedPlayer.avatar || '👤');
+      setEditStats(selectedPlayer.stats || { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
+    }
+  }, [selectedPlayer, isEditingSelf]);
 
   // Auto-open registration form in active lobby for unregistered guests
   useEffect(() => {
@@ -379,11 +395,91 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     );
   }
 
+  const saveSelfStats = async () => {
+    if (!editName.trim()) return;
+    
+    const previousRoster = [...roster];
+    const previousRegs = [...eventRegistrations];
+    const previousSelected = { ...selectedPlayer };
+
+    const updatedSelected = {
+      ...selectedPlayer,
+      name: editName.trim(),
+      role: editRole,
+      avatar: editAvatar,
+      stats: editStats
+    };
+    setSelectedPlayer(updatedSelected);
+
+    const updatedRoster = roster.map(p => 
+      (p.id === currentUser?.id || p.player_id === currentUser?.id || p.name.toLowerCase().trim() === selectedPlayer.name.toLowerCase().trim())
+        ? { ...p, name: editName.trim(), role: editRole, avatar: editAvatar, stats: editStats }
+        : p
+    );
+    setRoster(updatedRoster);
+
+    const updatedRegs = eventRegistrations.map(r => 
+      (r.player_id === currentUser?.id || r.name.toLowerCase().trim() === selectedPlayer.name.toLowerCase().trim())
+        ? { ...r, name: editName.trim(), role: editRole, stats: editStats, avatar: editAvatar }
+        : r
+    );
+    setEventRegistrations(updatedRegs);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        let rpcSuccess = false;
+        try {
+          const { error: rpcError } = await supabase.rpc('update_player_in_roster', {
+            p_league_id: leagueId,
+            p_player_id: currentUser.id,
+            p_name: editName.trim(),
+            p_role: editRole,
+            p_avatar: editAvatar,
+            p_stats: editStats
+          });
+          if (!rpcError) rpcSuccess = true;
+        } catch (err) {
+          console.warn("RPC update failed, trying fallback:", err);
+        }
+
+        if (!rpcSuccess) {
+          const { error: stateError } = await supabase
+            .from('league_state')
+            .update({ roster: updatedRoster, updated_at: new Date().toISOString() })
+            .eq('host_id', leagueId);
+          if (stateError) {
+            console.error("Error updating league state directly:", stateError);
+          }
+        }
+
+        const isUuid = (str) => {
+          if (!str) return false;
+          return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+        };
+        const hasReg = eventRegistrations.find(r => r.player_id === currentUser?.id || r.name.toLowerCase().trim() === selectedPlayer.name.toLowerCase().trim());
+        if (hasReg) {
+          const updateQuery = (hasReg.id && isUuid(hasReg.id))
+            ? supabase.from('event_registrations').update({ name: editName.trim(), role: editRole, stats: editStats, avatar: editAvatar }).eq('id', hasReg.id)
+            : supabase.from('event_registrations').update({ name: editName.trim(), role: editRole, stats: editStats, avatar: editAvatar }).eq('host_id', leagueId).eq('name', selectedPlayer.name);
+          await updateQuery;
+        }
+      } catch (err) {
+        console.error("Error saving stats:", err);
+        alert("Error al guardar cambios: " + err.message);
+        setRoster(previousRoster);
+        setEventRegistrations(previousRegs);
+        setSelectedPlayer(previousSelected);
+      }
+    }
+    setIsEditingSelf(false);
+  };
+
   if (!leagueExists) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>No se pudo encontrar la liga. Verifica que el enlace sea correcto.</div>;
   }
 
   if (selectedPlayer) {
+    const isMyCard = selectedPlayer.id === currentUser?.id || selectedPlayer.player_id === currentUser?.id;
     return (
       <div style={{ 
         minHeight: '100vh', 
@@ -396,7 +492,10 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         animation: 'fadeIn 0.3s' 
       }}>
         <button 
-          onClick={() => setSelectedPlayer(null)} 
+          onClick={() => {
+            setSelectedPlayer(null);
+            setIsEditingSelf(false);
+          }} 
           style={{ 
             background: 'transparent', 
             border: '1px solid var(--electric-cyan)', 
@@ -419,96 +518,227 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           alignItems: 'center', 
           gap: '2.5rem' 
         }}>
-          <div style={{ transform: 'scale(1.05)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <PlayerCard 
-               name={selectedPlayer.name} 
-               position={selectedPlayer.role.substring(0,3).toUpperCase()} 
-               stats={selectedPlayer.stats} 
-               avatar={selectedPlayer.avatar} 
-               ovr={Math.round(Math.round((selectedPlayer.stats.pac + selectedPlayer.stats.sho + selectedPlayer.stats.pas + selectedPlayer.stats.dri + selectedPlayer.stats.def + selectedPlayer.stats.phy) / 6) * (0.5 + 0.5 * ((selectedPlayer.condition?.stamina ?? 100) / 100)))} 
-               stamina={selectedPlayer.condition?.stamina ?? 100} 
-               badges={getPlayerBadges(selectedPlayer)}
-               isInjured={selectedPlayer.condition?.isResting}
-            />
-          </div>
+          {isEditingSelf ? (
+            <div className="glass-panel" style={{ width: '100%', padding: '2rem 1.5rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <h2 className="glow-text-volt" style={{ fontSize: '1.8rem', textAlign: 'center', margin: 0 }}>EDITAR HABILIDADES</h2>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--off-white)', fontWeight: 'bold' }}>Nombre / Apodo</span>
+                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="input-field" placeholder="Messi" required />
+              </div>
 
-          <div style={{ width: '100%' }}>
-            <EloChart history={selectedPlayer.glicko?.history || [1500, selectedPlayer.glicko?.rating || 1500]} />
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%' }}>
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ color: 'var(--off-white)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rango Competitivo</div>
-              <div className="glow-text-volt" style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.2rem' }}>{Math.round(selectedPlayer.glicko?.rating || 1500)} MMR</div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ color: 'var(--off-white)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rendimiento (Win Rate)</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--electric-cyan)' }}>
-                {selectedPlayer.history?.pj > 0 ? Math.round(((selectedPlayer.history?.pg || 0) / selectedPlayer.history.pj) * 100) : 0}%
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--off-white)', fontWeight: 'bold' }}>Posición</span>
+                <div className="segmented-control" style={{ display: 'flex', gap: '0.3rem', width: '100%' }}>
+                  {[
+                    { val: 'Arquero', label: 'GK' },
+                    { val: 'Defensor', label: 'DEF' },
+                    { val: 'Mediocampo', label: 'MED' },
+                    { val: 'Delantero', label: 'DEL' }
+                  ].map(r => (
+                    <button
+                      key={r.val}
+                      type="button"
+                      onClick={() => setEditRole(r.val)}
+                      className={`segment-btn ${editRole === r.val ? 'active' : ''}`}
+                      style={{
+                        flex: 1,
+                        padding: '0.6rem 0.2rem',
+                        fontSize: '0.8rem',
+                        background: editRole === r.val ? (r.val === 'Arquero' ? 'rgb(168, 85, 247)' : (r.val === 'Defensor' ? 'var(--electric-cyan)' : (r.val === 'Mediocampo' ? 'var(--volt-lime)' : 'var(--crimson-red)'))) : 'rgba(255,255,255,0.05)',
+                        color: editRole === r.val ? 'black' : 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--off-white)', fontWeight: 'bold' }}>Avatar</span>
+                <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', padding: '0.5rem 0', scrollbarWidth: 'thin' }}>
+                  {['👤', '⚽', '🦁', '🐯', '🦅', '🦊', '🐻', '🐼', '🐨', '🐺', '👑', '⚡', '💎', '🔥', '🎨', '🚀'].map(emoji => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setEditAvatar(emoji)}
+                      style={{
+                        fontSize: '1.5rem',
+                        padding: '0.4rem',
+                        background: editAvatar === emoji ? 'rgba(204,255,0,0.15)' : 'transparent',
+                        border: editAvatar === emoji ? '1px solid var(--volt-lime)' : '1px solid transparent',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        minWidth: '40px',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                {Object.keys(editStats).map(attr => (
+                  <div key={attr} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--off-white)' }}>
+                      <span style={{ fontWeight: 'bold' }}>{attr.toUpperCase()}</span>
+                      <span className="glow-text-volt">{editStats[attr]}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="99"
+                      value={editStats[attr]}
+                      onChange={(e) => setEditStats({ ...editStats, [attr]: parseInt(e.target.value) })}
+                      style={{ width: '100%', accentColor: 'var(--volt-lime)' }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem' }}>
+                <button
+                  onClick={saveSelfStats}
+                  className="btn-primary"
+                  style={{ flex: 1, padding: '0.8rem', fontSize: '0.95rem', fontWeight: 'bold' }}
+                >
+                  💾 GUARDAR
+                </button>
+                <button
+                  onClick={() => setIsEditingSelf(false)}
+                  style={{
+                    flex: 1,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: 'var(--off-white)',
+                    padding: '0.8rem',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.95rem',
+                    fontFamily: 'var(--font-primary)',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  ❌ CANCELAR
+                </button>
               </div>
             </div>
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', width: '100%' }}>
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ color: 'var(--off-white)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PJ</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>{selectedPlayer.history?.pj || 0}</div>
-            </div>
-            <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ color: 'var(--volt-lime)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PG</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--volt-lime)' }}>{selectedPlayer.history?.pg || 0}</div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ color: 'var(--off-white)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PE</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>{selectedPlayer.history?.pe || 0}</div>
-            </div>
-            <div style={{ background: 'rgba(255,59,48,0.02)', border: '1px solid rgba(255,59,48,0.1)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ color: 'var(--crimson-red)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PP</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--crimson-red)' }}>{selectedPlayer.history?.pp || 0}</div>
-            </div>
-          </div>
-
-          {selectedPlayer.financial?.debt > 0 && (
-            <div style={{
-              width: '100%',
-              background: 'rgba(255,215,0,0.05)',
-              border: '1px solid rgba(255,215,0,0.2)',
-              padding: '1.2rem',
-              borderRadius: '12px',
-              textAlign: 'center',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.8rem',
-              alignItems: 'center',
-              marginTop: '0.5rem'
-            }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--ultimate-gold)', fontWeight: 'bold', letterSpacing: '1px' }}>
-                ⚠️ TIENES UNA DEUDA PENDIENTE: ${selectedPlayer.financial.debt.toFixed(2)}
+          ) : (
+            <>
+              <div style={{ transform: 'scale(1.05)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <PlayerCard 
+                   name={selectedPlayer.name} 
+                   position={selectedPlayer.role.substring(0,3).toUpperCase()} 
+                   stats={selectedPlayer.stats} 
+                   avatar={selectedPlayer.avatar} 
+                   ovr={Math.round(Math.round((selectedPlayer.stats.pac + selectedPlayer.stats.sho + selectedPlayer.stats.pas + selectedPlayer.stats.dri + selectedPlayer.stats.def + selectedPlayer.stats.phy) / 6) * (0.5 + 0.5 * ((selectedPlayer.condition?.stamina ?? 100) / 100)))} 
+                   stamina={selectedPlayer.condition?.stamina ?? 100} 
+                   badges={getPlayerBadges(selectedPlayer)}
+                   isInjured={selectedPlayer.condition?.isResting}
+                   onClick={isMyCard ? () => setIsEditingSelf(true) : undefined}
+                />
+                {isMyCard && (
+                  <button 
+                    onClick={() => setIsEditingSelf(true)} 
+                    className="btn-primary" 
+                    style={{ marginTop: '1.5rem', width: 'auto', padding: '0.6rem 1.5rem', fontSize: '0.9rem', background: 'var(--electric-cyan)', borderColor: 'var(--electric-cyan)', color: 'black', fontWeight: 'bold' }}
+                  >
+                    ✏️ EDITAR MIS SKILLS
+                  </button>
+                )}
               </div>
-              <button 
-                onClick={() => handlePayMP(selectedPlayer.id, selectedPlayer.financial.debt)} 
-                className="btn-primary" 
-                style={{
-                  background: '#009EE3',
-                  borderColor: '#009EE3',
-                  color: 'white',
-                  fontSize: '0.95rem',
-                  padding: '0.8rem 2rem',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  justifyContent: 'center',
+
+              <div style={{ width: '100%' }}>
+                <EloChart history={selectedPlayer.glicko?.history || [1500, selectedPlayer.glicko?.rating || 1500]} />
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: 'var(--off-white)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rango Competitivo</div>
+                  <div className="glow-text-volt" style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.2rem' }}>{Math.round(selectedPlayer.glicko?.rating || 1500)} MMR</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: 'var(--off-white)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Rendimiento (Win Rate)</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--electric-cyan)' }}>
+                    {selectedPlayer.history?.pj > 0 ? Math.round(((selectedPlayer.history?.pg || 0) / selectedPlayer.history.pj) * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', width: '100%' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: 'var(--off-white)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PJ</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>{selectedPlayer.history?.pj || 0}</div>
+                </div>
+                <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: 'var(--volt-lime)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PG</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--volt-lime)' }}>{selectedPlayer.history?.pg || 0}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: 'var(--off-white)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PE</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'white' }}>{selectedPlayer.history?.pe || 0}</div>
+                </div>
+                <div style={{ background: 'rgba(255,59,48,0.02)', border: '1px solid rgba(255,59,48,0.1)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: 'var(--crimson-red)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PP</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '900', marginTop: '0.2rem', color: 'var(--crimson-red)' }}>{selectedPlayer.history?.pp || 0}</div>
+                </div>
+              </div>
+
+              {selectedPlayer.financial?.debt > 0 && (
+                <div style={{
                   width: '100%',
-                  boxShadow: '0 0 15px rgba(0,158,227,0.3)'
-                }}
-              >
-                💳 Pagar con Mercado Pago
-              </button>
-            </div>
-          )}
+                  background: 'rgba(255,215,0,0.05)',
+                  border: '1px solid rgba(255,215,0,0.2)',
+                  padding: '1.2rem',
+                  borderRadius: '12px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.8rem',
+                  alignItems: 'center',
+                  marginTop: '0.5rem'
+                }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--ultimate-gold)', fontWeight: 'bold', letterSpacing: '1px' }}>
+                    ⚠️ TIENES UNA DEUDA PENDIENTE: ${selectedPlayer.financial.debt.toFixed(2)}
+                  </div>
+                  <button 
+                    onClick={() => handlePayMP(selectedPlayer.id, selectedPlayer.financial.debt)} 
+                    className="btn-primary" 
+                    style={{
+                      background: '#009EE3',
+                      borderColor: '#009EE3',
+                      color: 'white',
+                      fontSize: '0.95rem',
+                      padding: '0.8rem 2rem',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      justifyContent: 'center',
+                      width: '100%',
+                      boxShadow: '0 0 15px rgba(0,158,227,0.3)'
+                    }}
+                  >
+                    💳 Pagar con Mercado Pago
+                  </button>
+                </div>
+              )}
 
-          <p style={{ color: 'var(--off-white)', fontSize: '0.8rem', textAlign: 'center', marginTop: '1rem' }}>Comparte tu Ficha Táctica 📸</p>
+              <p style={{ color: 'var(--off-white)', fontSize: '0.8rem', textAlign: 'center', marginTop: '1rem' }}>Comparte tu Ficha Táctica 📸</p>
+            </>
+          )}
         </div>
       </div>
     );

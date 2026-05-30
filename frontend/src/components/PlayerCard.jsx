@@ -8,13 +8,15 @@ const BADGE_ICONS = {
   fairplay: { icon: '🪙', label: 'Fair Play', color: 'var(--ultimate-gold)', glow: 'rgba(255,215,0,0.5)', desc: 'Finanzas Impecables (Sin deudas)' }
 };
 
-const PlayerCard = ({ name = "JUGADOR", position = "MC", stats = { pac: 80, sho: 75, pas: 80, dri: 85, def: 60, phy: 70 }, avatar, ovr, stamina = 100, badges = [], isInjured = false }) => {
+const PlayerCard = ({ name = "JUGADOR", position = "MC", stats = { pac: 80, sho: 75, pas: 80, dri: 85, def: 60, phy: 70 }, avatar, ovr, stamina = 100, badges = [], isInjured = false, onClick }) => {
   const displayOvr = ovr !== undefined ? ovr : Math.round((stats.pac + stats.sho + stats.pas + stats.dri + stats.def + stats.phy) / 6);
 
   return (
-    <div style={{
-      position: 'relative',
-      width: '140px',
+    <div 
+      onClick={onClick}
+      style={{
+        position: 'relative',
+        width: '140px',
       height: '210px',
       background: 'linear-gradient(135deg, rgba(30,30,35,0.95), rgba(10,10,15,0.95))',
       border: '1px solid rgba(255,215,0,0.5)',

@@ -201,3 +201,55 @@ CREATE OR REPLACE TRIGGER on_player_registered
     AFTER INSERT ON public.event_registrations
     FOR EACH ROW EXECUTE FUNCTION public.notify_player_joined();
 
+
+-- ==========================================
+-- 9. GUEST PLAYER SELF-EDITING FUNCTIONALITY
+-- ==========================================
+
+-- Función RPC para permitir a los jugadores actualizar sus propias estadísticas en el roster de la liga (dentro de JSONB de league_state)
+CREATE OR REPLACE FUNCTION public.update_player_in_roster(
+    p_league_id UUID,
+    p_player_id UUID,
+    p_name TEXT,
+    p_role TEXT,
+    p_avatar TEXT,
+    p_stats JSONB
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_roster JSONB;
+    v_updated_roster JSONB;
+    v_item JSONB;
+BEGIN
+    SELECT roster INTO v_roster FROM public.league_state WHERE host_id = p_league_id;
+    IF v_roster IS NULL THEN
+        RAISE EXCEPTION 'League not found';
+    END IF;
+
+    v_updated_roster := '[]'::jsonb;
+    FOR v_item IN SELECT * FROM jsonb_array_elements(v_roster)
+    LOOP
+        IF (v_item->>'id' = p_player_id::text) OR (v_item->>'player_id' = p_player_id::text) OR (v_item->>'name' = p_name) THEN
+            v_item := jsonb_set(v_item, '{name}', to_jsonb(p_name));
+            v_item := jsonb_set(v_item, '{role}', to_jsonb(p_role));
+            v_item := jsonb_set(v_item, '{avatar}', to_jsonb(p_avatar));
+            v_item := jsonb_set(v_item, '{stats}', p_stats);
+        END IF;
+        v_updated_roster := v_updated_roster || jsonb_build_array(v_item);
+    END LOOP;
+
+    UPDATE public.league_state
+    SET roster = v_updated_roster,
+        updated_at = now()
+    WHERE host_id = p_league_id;
+END;
+$$;
+
+-- Política RLS adicional para permitir a los usuarios actualizar su propio registro de registro en event_registrations
+CREATE POLICY "Users can update their own event registrations" ON public.event_registrations
+    FOR UPDATE USING (player_id = auth.uid() OR name = (SELECT name FROM public.event_registrations WHERE player_id = auth.uid() LIMIT 1));
+
+
