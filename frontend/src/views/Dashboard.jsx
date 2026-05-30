@@ -937,10 +937,20 @@ const Dashboard = ({ userId, onLogout }) => {
     };
 
     if (isSupabaseConfigured && supabase) {
+      // Optimistic update: instantly add to local state to prevent lag and dropdown conflicts
+      const tempId = Date.now().toString();
+      setEventRegistrations(prev => {
+        const alreadyIn = prev.some(r => r.name.toLowerCase().trim() === p.name.toLowerCase().trim());
+        if (alreadyIn) return prev;
+        return [...prev, { ...newReg, id: tempId }];
+      });
+
       const { error } = await supabase.from('event_registrations').insert(newReg);
       if (error) {
         console.error("Error adding player to event:", error);
         alert("Error al convocar al jugador: " + error.message);
+        // Rollback optimistic update
+        setEventRegistrations(prev => prev.filter(r => r.id !== tempId));
       }
     } else {
       setEventRegistrations(prev => [...prev, { ...newReg, id: Date.now().toString() }]);
@@ -949,10 +959,20 @@ const Dashboard = ({ userId, onLogout }) => {
 
   const removePlayerFromEvent = async (name) => {
     if (!activeEvent) return;
+    
+    // Save previous state for rollback
+    const previousRegs = [...eventRegistrations];
+
     if (isSupabaseConfigured && supabase) {
+      // Optimistic update: instantly remove from local state
+      setEventRegistrations(prev => prev.filter(reg => reg.name.toLowerCase().trim() !== name.toLowerCase().trim()));
+
       const { error } = await supabase.from('event_registrations').delete().eq('host_id', hostId).eq('name', name);
       if (error) {
         console.error("Error removing player from event:", error);
+        alert("Error al quitar al jugador: " + error.message);
+        // Rollback
+        setEventRegistrations(previousRegs);
       }
     } else {
       setEventRegistrations(prev => prev.filter(reg => reg.name.toLowerCase().trim() !== name.toLowerCase().trim()));
