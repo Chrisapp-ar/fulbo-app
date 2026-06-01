@@ -2070,8 +2070,17 @@ const Dashboard = ({ userId, onLogout }) => {
   }
 
   if (viewMode === 'dreamteam') {
-    const topPlayers = [...roster].sort((a,b) => calcHybridScore(b) - calcHybridScore(a)).slice(0, 5);
-    
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const activeThisMonth = roster.filter(p => {
+      if (!p.lastMatchDate) return false;
+      const d = new Date(p.lastMatchDate);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+    // Fallback to all-time if no one played this month just so it's not empty, but ideally just this month.
+    const playersToRank = activeThisMonth.length >= 5 ? activeThisMonth : roster;
+    const topPlayers = [...playersToRank].sort((a,b) => calcHybridScore(b) - calcHybridScore(a)).slice(0, 5);
+
     return (
       <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
         <header style={{ textAlign: 'center', marginBottom: '3rem' }}>

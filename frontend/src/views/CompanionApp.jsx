@@ -1145,11 +1145,55 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                     </div>
                   </div>
 
-                  {/* Action or register form */}
                   {isUserRegistered ? (
-                    <div style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid #25D366', color: '#25D366', padding: '1.2rem', borderRadius: '8px', textAlign: 'center', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                      ¡Estás inscrito en este partido! ✅<br />
-                      <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.8 }}>Espera a que el organizador arme los equipos.</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid #25D366', color: '#25D366', padding: '1.2rem', borderRadius: '8px', textAlign: 'center', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                        ¡Estás inscrito en este partido! ✅<br />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.8 }}>Espera a que el organizador arme los equipos.</span>
+                      </div>
+                      {activeEvent.pitchCost > 0 && (
+                        <div style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid var(--electric-cyan)', padding: '1.2rem', borderRadius: '8px', animation: 'fadeIn 0.3s' }}>
+                          <h4 style={{ color: 'var(--ultimate-gold)', margin: '0 0 0.8rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>💰 LA VAQUITA</h4>
+                          <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                            Cuota a pagar: <strong className="glow-text-volt" style={{ color: 'var(--volt-lime)', fontSize: '1.1rem' }}>${(activeEvent.pitchCost / (activeEvent.format * 2)).toFixed(2)}</strong>
+                          </p>
+                          {activeEvent.payments && (activeEvent.payments[myPlayerCard?.id] || activeEvent.payments[regName]) ? (
+                            <div style={{ background: 'rgba(37,211,102,0.1)', color: '#25D366', padding: '0.8rem', borderRadius: '6px', textAlign: 'center', fontWeight: 'bold' }}>
+                              ✅ Pago Confirmado (Avisado)
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                              <button 
+                                onClick={() => window.open('https://link.mercadopago.com.ar/fulboapp', '_blank')}
+                                className="btn-primary" 
+                                style={{ background: '#009EE3', borderColor: '#009EE3', color: 'white', padding: '0.8rem', fontSize: '0.9rem' }}
+                              >
+                                🤝 Pagar con Mercado Pago
+                              </button>
+                              <button 
+                                onClick={async () => {
+                                  try {
+                                    if (isSupabaseConfigured && supabase) {
+                                      const { data } = await supabase.from('league_state').select('active_event').eq('host_id', activeEvent.host_id).single();
+                                      if (data && data.active_event) {
+                                        const ev = data.active_event;
+                                        if (!ev.payments) ev.payments = {};
+                                        const pid = myPlayerCard?.id || regName;
+                                        ev.payments[pid] = true;
+                                        await supabase.from('league_state').update({ active_event: ev }).eq('host_id', activeEvent.host_id);
+                                        alert("¡Avisaste que pagas en efectivo!");
+                                      }
+                                    }
+                                  } catch(e) { console.error(e); }
+                                }}
+                                style={{ background: 'transparent', border: '1px solid var(--volt-lime)', color: 'var(--volt-lime)', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+                              >
+                                💵 Pagar en Efectivo (Al llegar)
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div>
