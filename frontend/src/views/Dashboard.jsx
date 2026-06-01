@@ -2385,13 +2385,20 @@ const Dashboard = ({ userId, onLogout }) => {
   });
   const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
 
+  const isPlanExpired = () => {
+    if (subscriptionChecking) return false;
+    if (subscriptionStatus !== 'active') return true;
+    if (subscriptionEndsAt && new Date(subscriptionEndsAt) < new Date()) return true;
+    return false;
+  };
+
   const handlePaywallPayment = async () => {
     try {
       setToastMessage('Redirigiendo a Mercado Pago...');
       const response = await fetch('/api/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hostId: currentHostId, redirectUrl: `${window.location.origin}/?subscription_payment=approved&host_id=${currentHostId}` })
+        body: JSON.stringify({ hostId: hostId, redirectUrl: `${window.location.origin}/?subscription_payment=approved&host_id=${hostId}` })
       });
       const data = await response.json();
       if (response.ok && data.initPoint) {
