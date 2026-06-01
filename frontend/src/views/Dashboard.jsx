@@ -1108,7 +1108,10 @@ const Dashboard = ({ userId, onLogout }) => {
           return;
         }
 
-        pool = finalRegs.map(reg => {
+        // Force even pool
+        const evenRegs = finalRegs.slice(0, finalRegs.length - (finalRegs.length % 2));
+
+        pool = evenRegs.map(reg => {
           const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
           return {
             id: existingPlayer ? existingPlayer.id : (reg.player_id || reg.id),
@@ -1230,7 +1233,10 @@ const Dashboard = ({ userId, onLogout }) => {
           return;
         }
 
-        pool = finalRegs.map(reg => {
+        // Force even pool
+        const evenRegs = finalRegs.slice(0, finalRegs.length - (finalRegs.length % 2));
+
+        pool = evenRegs.map(reg => {
           const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
           return {
             id: existingPlayer ? existingPlayer.id : (reg.player_id || reg.id),
@@ -1578,6 +1584,22 @@ const Dashboard = ({ userId, onLogout }) => {
        const newRating = newGlickoMap[matchPlayer.id]?.rating || (existingIndex >= 0 ? updatedRoster[existingIndex].glicko?.rating : 1500) || 1500;
        const isMvp = matchPlayer.id === mvpId;
 
+       const prevStats = (existingIndex >= 0 ? updatedRoster[existingIndex].stats : matchPlayer.stats) || { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 };
+       let newStats = { ...prevStats };
+       
+       if (winnerMatches) {
+         newStats.pac = Math.min(99, newStats.pac + 1);
+         newStats.sho = Math.min(99, newStats.sho + 1);
+         newStats.pas = Math.min(99, newStats.pas + 1);
+         newStats.dri = Math.min(99, newStats.dri + 1);
+         newStats.def = Math.min(99, newStats.def + 1);
+         newStats.phy = Math.min(99, newStats.phy + 1);
+       }
+       const goalsScored = playerGoals[matchPlayer.id] || 0;
+       if (goalsScored > 0) {
+         newStats.sho = Math.min(99, newStats.sho + goalsScored);
+       }
+
        if (existingIndex >= 0) {
           const ep = updatedRoster[existingIndex];
           const prevHistory = ep.glicko?.history || [1500];
@@ -1585,12 +1607,13 @@ const Dashboard = ({ userId, onLogout }) => {
              ...ep,
              player_id: matchPlayer.player_id || ep.player_id || null,
              lastMatchDate: new Date().toISOString(),
+             stats: newStats,
              history: { 
                  pj: (ep.history?.pj || 0) + 1, 
                  pg: (ep.history?.pg || 0) + (winnerMatches ? 1 : 0), 
                  pe: (ep.history?.pe || 0) + (winner === 'Draw' ? 1 : 0),
                  pp: (ep.history?.pp || 0) + ((!winnerMatches && winner !== 'Draw') ? 1 : 0),
-                 goals: (ep.history?.goals || 0) + (playerGoals[matchPlayer.id] || 0),
+                 goals: (ep.history?.goals || 0) + goalsScored,
                  mvpCount: (ep.history?.mvpCount || 0) + (isMvp ? 1 : 0)
              },
              glicko: {
@@ -1609,12 +1632,13 @@ const Dashboard = ({ userId, onLogout }) => {
           updatedRoster.push({
              ...matchPlayer,
              lastMatchDate: new Date().toISOString(),
+             stats: newStats,
              history: { 
                  pj: 1, 
                  pg: winnerMatches ? 1 : 0, 
                  pe: winner === 'Draw' ? 1 : 0,
                  pp: (!winnerMatches && winner !== 'Draw') ? 1 : 0,
-                 goals: playerGoals[matchPlayer.id] || 0,
+                 goals: goalsScored,
                  mvpCount: isMvp ? 1 : 0
              },
              glicko: {
@@ -2045,6 +2069,41 @@ const Dashboard = ({ userId, onLogout }) => {
     );
   }
 
+  if (viewMode === 'dreamteam') {
+    const topPlayers = [...roster].sort((a,b) => calcHybridScore(b) - calcHybridScore(a)).slice(0, 5);
+    
+    return (
+      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
+        <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0 }}>🏆 DREAM TEAM</h1>
+          <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>LOS 5 MEJORES JUGADORES DEL MES</p>
+          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button className="btn-primary" onClick={() => setViewMode('builder')} style={{ width: 'auto' }}>VOLVER AL ARMADO</button>
+          </div>
+        </header>
+
+        <div style={{ position: 'relative', height: '600px', background: 'radial-gradient(circle, rgba(204,255,0,0.1) 0%, rgba(0,0,0,0.8) 70%)', border: '2px solid var(--volt-lime)', borderRadius: '20px', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', boxShadow: '0 0 50px rgba(204,255,0,0.2)' }}>
+          <div style={{ position: 'absolute', top: '5%', transform: 'scale(1.2)', zIndex: 5, filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.6))' }}>
+            {topPlayers[0] && <PlayerCard name={topPlayers[0].name} position={topPlayers[0].role.substring(0,3).toUpperCase()} stats={topPlayers[0].stats} avatar={topPlayers[0].avatar} ovr={calcOvr(topPlayers[0])} badges={getPlayerBadges(topPlayers[0])} />}
+          </div>
+          <div style={{ position: 'absolute', top: '35%', left: '15%', zIndex: 4 }}>
+            {topPlayers[1] && <PlayerCard name={topPlayers[1].name} position={topPlayers[1].role.substring(0,3).toUpperCase()} stats={topPlayers[1].stats} avatar={topPlayers[1].avatar} ovr={calcOvr(topPlayers[1])} badges={getPlayerBadges(topPlayers[1])} />}
+          </div>
+          <div style={{ position: 'absolute', top: '35%', right: '15%', zIndex: 4 }}>
+            {topPlayers[2] && <PlayerCard name={topPlayers[2].name} position={topPlayers[2].role.substring(0,3).toUpperCase()} stats={topPlayers[2].stats} avatar={topPlayers[2].avatar} ovr={calcOvr(topPlayers[2])} badges={getPlayerBadges(topPlayers[2])} />}
+          </div>
+          <div style={{ position: 'absolute', bottom: '10%', left: '25%', zIndex: 3 }}>
+            {topPlayers[3] && <PlayerCard name={topPlayers[3].name} position={topPlayers[3].role.substring(0,3).toUpperCase()} stats={topPlayers[3].stats} avatar={topPlayers[3].avatar} ovr={calcOvr(topPlayers[3])} badges={getPlayerBadges(topPlayers[3])} />}
+          </div>
+          <div style={{ position: 'absolute', bottom: '10%', right: '25%', zIndex: 3 }}>
+            {topPlayers[4] && <PlayerCard name={topPlayers[4].name} position={topPlayers[4].role.substring(0,3).toUpperCase()} stats={topPlayers[4].stats} avatar={topPlayers[4].avatar} ovr={calcOvr(topPlayers[4])} badges={getPlayerBadges(topPlayers[4])} />}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
   if (viewMode === 'hospital') {
     const injuredPlayers = roster.filter(p => p.condition?.isResting);
 
@@ -2326,8 +2385,87 @@ const Dashboard = ({ userId, onLogout }) => {
   });
   const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
 
+  const handlePaywallPayment = async () => {
+    try {
+      setToastMessage('Redirigiendo a Mercado Pago...');
+      const response = await fetch('/api/create-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostId: currentHostId, redirectUrl: `${window.location.origin}/?subscription_payment=approved&host_id=${currentHostId}` })
+      });
+      const data = await response.json();
+      if (response.ok && data.initPoint) {
+        window.location.href = data.initPoint;
+      } else {
+        setToastMessage("Error al procesar pago: " + (data.error || ""));
+        setTimeout(() => setToastMessage(''), 3000);
+      }
+    } catch (e) {
+      setToastMessage('Error de conexión con Mercado Pago');
+      setTimeout(() => setToastMessage(''), 3000);
+    }
+  };
+
   return (
     <div className="page-container" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+      {isPlanExpired() && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(10,10,15,0.98)',
+          backdropFilter: 'blur(15px)',
+          zIndex: 100000,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          padding: '2rem',
+          textAlign: 'center'
+        }}>
+          <span style={{ fontSize: '4rem', marginBottom: '1rem' }}>⏱️</span>
+          <h2 className="glow-text-volt" style={{ color: 'var(--crimson-red)', fontSize: '2.5rem', marginBottom: '1rem' }}>TU PRUEBA HA FINALIZADO</h2>
+          <p style={{ color: 'var(--off-white)', fontSize: '1.2rem', maxWidth: '600px', lineHeight: '1.6', marginBottom: '2rem' }}>
+            Tus 7 días de prueba como Organizador han expirado. Para continuar creando ligas, organizando partidos y utilizando el motor de matchmaking avanzado, debes activar tu suscripción Premium Pro.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '400px' }}>
+            <button 
+              onClick={handlePaywallPayment}
+              className="btn-primary" 
+              style={{ 
+                background: 'var(--electric-cyan)', 
+                color: 'black', 
+                borderColor: 'var(--electric-cyan)', 
+                padding: '1.2rem 2.5rem', 
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                boxShadow: '0 0 30px rgba(0, 240, 255, 0.4)',
+                cursor: 'pointer'
+              }}
+            >
+              SUSCRIBIRSE POR $9.999 ARS / MES 💳
+            </button>
+            <button 
+              onClick={onLogout}
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--off-white)',
+                color: 'var(--off-white)',
+                padding: '1rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 'bold'
+              }}
+            >
+              🚪 Cerrar Sesión (Entrar como Jugador)
+            </button>
+          </div>
+        </div>
+      )}
       {showPackOpening && (
         <div style={{
           position: 'fixed',
@@ -2490,53 +2628,8 @@ const Dashboard = ({ userId, onLogout }) => {
         </div>
       )}
       <header style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-        <div className="responsive-header-actions" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+        <div className="responsive-header-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
           <div className="nav-tabs-container" style={{ margin: 0, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button 
-              onClick={() => setViewMode('builder')} 
-              className={`nav-tab-btn ${viewMode === 'builder' ? 'active' : ''}`}
-            >
-              ⚙️ ARMADO
-            </button>
-            <button 
-              onClick={() => setViewMode('active_matches')} 
-              className={`nav-tab-btn ${viewMode === 'active_matches' ? 'active' : ''}`}
-            >
-              📅 PARTIDOS CREADOS
-            </button>
-            <button 
-              onClick={() => setViewMode('stats')} 
-              className={`nav-tab-btn ${viewMode === 'stats' ? 'active' : ''}`}
-            >
-              🏆 LEADERBOARD
-            </button>
-            <button 
-              onClick={() => setViewMode('history')} 
-              className={`nav-tab-btn ${viewMode === 'history' ? 'active' : ''}`}
-            >
-              📚 HISTÓRICO
-            </button>
-            <button 
-              onClick={() => setViewMode('hospital')} 
-              className={`nav-tab-btn ${viewMode === 'hospital' ? 'active' : ''}`}
-              style={{ border: '1px solid rgba(255, 59, 48, 0.3)', color: '#FF3B30' }}
-            >
-              🏥 HOSPITAL
-            </button>
-            <button 
-              onClick={copyLeagueLink} 
-              className="nav-tab-btn" 
-              style={{ border: '1px solid rgba(0, 240, 255, 0.3)', color: 'var(--electric-cyan)' }}
-            >
-              🔗 COMPARTIR LIGA
-            </button>
-            <button 
-              onClick={onLogout} 
-              className="nav-tab-btn" 
-              style={{ border: '1px solid var(--crimson-red)', color: 'var(--crimson-red)' }}
-            >
-              🚪 SALIR
-            </button>
 
             {/* Notification Bell */}
             {activeEvent && (
@@ -3132,6 +3225,56 @@ const Dashboard = ({ userId, onLogout }) => {
           )}
         </main>
       </div>
+
+      {/* Barra de Navegación Inferior Dashboard */}
+      <nav style={{ 
+        position: 'fixed', 
+        bottom: 0, 
+        left: 0, 
+        right: 0, 
+        background: 'rgba(10,10,15,0.95)', 
+        backdropFilter: 'blur(10px)', 
+        borderTop: '1px solid rgba(255,255,255,0.1)', 
+        display: 'flex', 
+        justifyContent: 'space-around', 
+        padding: '0.6rem 0.2rem', 
+        paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom))',
+        zIndex: 1000,
+        overflowX: 'auto'
+      }}>
+        <button onClick={() => setViewMode('builder')} style={{ background: 'transparent', color: viewMode === 'builder' ? 'var(--volt-lime)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
+          <span style={{ fontSize: '1.2rem' }}>⚙️</span>
+          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Armado</span>
+        </button>
+        <button onClick={() => setViewMode('active_matches')} style={{ background: 'transparent', color: viewMode === 'active_matches' ? 'var(--volt-lime)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
+          <span style={{ fontSize: '1.2rem' }}>📅</span>
+          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Partidos</span>
+        </button>
+        <button onClick={() => setViewMode('stats')} style={{ background: 'transparent', color: viewMode === 'stats' ? 'var(--volt-lime)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
+          <span style={{ fontSize: '1.2rem' }}>🏅</span>
+          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Ranking</span>
+        </button>
+        <button onClick={() => setViewMode('history')} style={{ background: 'transparent', color: viewMode === 'history' ? 'var(--volt-lime)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
+          <span style={{ fontSize: '1.2rem' }}>📚</span>
+          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Histórico</span>
+        </button>
+        <button onClick={() => setViewMode('hospital')} style={{ background: 'transparent', color: viewMode === 'hospital' ? '#FF3B30' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
+          <span style={{ fontSize: '1.2rem' }}>🚑</span>
+          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Hospital</span>
+        </button>
+        <button onClick={() => setViewMode('dreamteam')} style={{ background: 'transparent', color: viewMode === 'dreamteam' ? 'var(--ultimate-gold)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
+          <span style={{ fontSize: '1.2rem' }}>🏆</span>
+          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>DreamTeam</span>
+        </button>
+        <button onClick={copyLeagueLink} style={{ background: 'transparent', color: 'var(--electric-cyan)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
+          <span style={{ fontSize: '1.2rem' }}>🔗</span>
+          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Compartir</span>
+        </button>
+        <button onClick={onLogout} style={{ background: 'transparent', color: 'var(--crimson-red)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
+          <span style={{ fontSize: '1.2rem' }}>🚪</span>
+          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Salir</span>
+        </button>
+      </nav>
     </div>
   );
 };

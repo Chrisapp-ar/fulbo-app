@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 
 const Login = ({ isGuest = false, onLogin }) => {
+  const [selectedRole, setSelectedRole] = useState(null);
+  const isActuallyGuest = selectedRole === 'guest';
+  
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +39,7 @@ const Login = ({ isGuest = false, onLogin }) => {
       setErrorMsg(error.message);
       setLoading(false);
     } else {
+      localStorage.setItem('userRole', isActuallyGuest ? 'guest' : 'host');
       setLoading(false);
       onLogin();
     }
@@ -51,13 +55,15 @@ const Login = ({ isGuest = false, onLogin }) => {
     }
 
     if (!orgName.trim()) {
-      setErrorMsg(isGuest ? 'Por favor, ingresa tu nombre completo.' : 'Por favor, ingresa el nombre de tu club o liga.');
+      setErrorMsg(isActuallyGuest ? 'Por favor, ingresa tu nombre completo.' : 'Por favor, ingresa el nombre de tu club o liga.');
       return;
     }
 
     setLoading(true);
 
-    if (isGuest) {
+    if (isActuallyGuest) {
+      localStorage.setItem('guestName', orgName.trim());
+      localStorage.setItem('userRole', 'guest');
       // 1. SignUp Guest User
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -76,14 +82,11 @@ const Login = ({ isGuest = false, onLogin }) => {
       }
 
       // 2. Log in Guest User
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) {
-        setErrorMsg(signInError.message);
-        setLoading(false);
-      } else {
-        setLoading(false);
-        onLogin();
-      }
+      await supabase.auth.signInWithPassword({ email, password });
+      
+      // Always bypass email confirmation block for guests to provide immediate access
+      setLoading(false);
+      onLogin();
       return;
     }
     
@@ -138,6 +141,7 @@ const Login = ({ isGuest = false, onLogin }) => {
         setErrorMsg(signInError.message);
         setLoading(false);
       } else {
+        localStorage.setItem('userRole', 'host');
         setLoading(false);
         onLogin();
       }
@@ -204,6 +208,58 @@ const Login = ({ isGuest = false, onLogin }) => {
           </p>
         </div>
 
+        {selectedRole === null ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '2rem' }}>
+            <h2 style={{ color: 'var(--off-white)', fontSize: '1.2rem', marginBottom: '1rem' }}>¿Cómo deseas ingresar?</h2>
+            
+            <button 
+              onClick={() => setSelectedRole('host')}
+              style={{
+                background: 'var(--pitch-black)',
+                border: '2px solid var(--electric-cyan)',
+                padding: '1.5rem',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                color: 'var(--pure-white)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.8rem',
+                transition: 'all 0.3s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 240, 255, 0.4)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+            >
+              <span style={{ fontSize: '2.5rem' }}>👑</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>SOY ORGANIZADOR</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--electric-cyan)' }}>Crea ligas, gestiona eventos (Trial 7 Días)</span>
+            </button>
+
+            <button 
+              onClick={() => setSelectedRole('guest')}
+              style={{
+                background: 'var(--pitch-black)',
+                border: '2px solid var(--volt-lime)',
+                padding: '1.5rem',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                color: 'var(--pure-white)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.8rem',
+                transition: 'all 0.3s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 20px rgba(204, 255, 0, 0.4)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+            >
+              <span style={{ fontSize: '2.5rem' }}>👟</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>SOY JUGADOR</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--volt-lime)' }}>100% Gratis. Únete a partidos y rankings.</span>
+            </button>
+          </div>
+        ) : (
+          <>
         {subscriptionSuccess && (
           <div style={{ 
             background: 'rgba(37,211,102,0.1)', 
@@ -223,8 +279,8 @@ const Login = ({ isGuest = false, onLogin }) => {
         
         <div style={{ color: 'var(--off-white)', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '1.5rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
           {isRegistering 
-            ? (isGuest ? 'Registro de Jugador' : 'Registro de Club / Liga') 
-            : (isGuest ? 'Acceso de Jugador' : 'Cloud Security Gateway')
+            ? (isActuallyGuest ? 'Registro de Jugador' : 'Registro de Club / Liga') 
+            : (isActuallyGuest ? 'Acceso de Jugador' : 'Cloud Security Gateway')
           }
         </div>
         
@@ -237,13 +293,13 @@ const Login = ({ isGuest = false, onLogin }) => {
         <form onSubmit={isRegistering ? handleRegisterSubmit : handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
           {isRegistering && (
             <div style={{ textAlign: 'left' }}>
-              <label style={labelStyle}>{isGuest ? 'Tu Nombre completo' : 'Nombre de tu Club / Liga'}</label>
-              <input type="text" placeholder={isGuest ? 'Ej: Lionel Messi' : 'Ej: Liga Intercountries'} style={inputStyle} value={orgName} onChange={e => setOrgName(e.target.value)} required />
+              <label style={labelStyle}>{isActuallyGuest ? 'Tu Nombre completo' : 'Nombre de tu Club / Liga'}</label>
+              <input type="text" placeholder={isActuallyGuest ? 'Ej: Lionel Messi' : 'Ej: Liga Intercountries'} style={inputStyle} value={orgName} onChange={e => setOrgName(e.target.value)} required />
             </div>
           )}
 
           <div style={{ textAlign: 'left' }}>
-            <label style={labelStyle}>{isGuest ? 'Email del Jugador' : 'Email del Organizador (Host)'}</label>
+            <label style={labelStyle}>{isActuallyGuest ? 'Email del Jugador' : 'Email del Organizador (Host)'}</label>
             <input type="email" placeholder="jugador@email.com" style={inputStyle} value={email} onChange={e => setEmail(e.target.value)} required />
           </div>
 
@@ -252,7 +308,7 @@ const Login = ({ isGuest = false, onLogin }) => {
             <input type="password" placeholder="******" style={inputStyle} value={password} onChange={e => setPassword(e.target.value)} required />
           </div>
 
-          {isRegistering && !isGuest && (
+          {isRegistering && !isActuallyGuest && (
             <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
               <label style={labelStyle}>Selecciona tu Plan</label>
               <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.4rem' }}>
@@ -310,23 +366,23 @@ const Login = ({ isGuest = false, onLogin }) => {
             style={{ 
               marginTop: '0.5rem', 
               borderColor: isRegistering 
-                ? (isGuest ? 'var(--volt-lime)' : (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)')) 
+                ? (isActuallyGuest ? 'var(--volt-lime)' : (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)')) 
                 : 'var(--electric-cyan)', 
               color: isRegistering 
-                ? (isGuest ? 'var(--volt-lime)' : (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)')) 
+                ? (isActuallyGuest ? 'var(--volt-lime)' : (plan === 'trial' ? 'var(--volt-lime)' : 'var(--electric-cyan)')) 
                 : 'var(--electric-cyan)' 
             }}
           >
             {loading 
               ? 'PROCESANDO...' 
               : (isRegistering 
-                  ? (isGuest ? 'REGISTRARSE Y ENTRAR ⚡' : (plan === 'trial' ? 'INICIAR PRUEBA GRATIS ⚡' : 'PAGAR E INICIALIZAR 💳')) 
-                  : (isGuest ? 'INGRESAR A LA LIGA ⚽' : 'INITIALIZE MATCHMAKING'))
+                  ? (isActuallyGuest ? 'REGISTRARSE Y ENTRAR ⚡' : (plan === 'trial' ? 'INICIAR PRUEBA GRATIS ⚡' : 'PAGAR E INICIALIZAR 💳')) 
+                  : (isActuallyGuest ? 'INGRESAR A LA LIGA ⚽' : 'INITIALIZE MATCHMAKING'))
             }
           </button>
         </form>
 
-        <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+        <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <button 
             onClick={() => { setIsRegistering(!isRegistering); setErrorMsg(''); }}
             style={{
@@ -342,11 +398,29 @@ const Login = ({ isGuest = false, onLogin }) => {
             }}
           >
             {isRegistering 
-              ? (isGuest ? '¿Ya tienes cuenta de jugador? Inicia Sesión' : '¿Ya tienes una liga? Inicia Sesión') 
-              : (isGuest ? '¿No tienes cuenta de jugador? Regístrate' : '¿No tienes cuenta? Regístrate')
+              ? (isActuallyGuest ? '¿Ya tienes cuenta de jugador? Inicia Sesión' : '¿Ya tienes una liga? Inicia Sesión') 
+              : (isActuallyGuest ? '¿No tienes cuenta de jugador? Regístrate' : '¿No tienes cuenta? Regístrate')
             }
           </button>
+          {!isGuest && (
+            <button 
+              onClick={() => { setSelectedRole(null); setErrorMsg(''); setIsRegistering(false); }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--off-white)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-primary)',
+                fontSize: '0.75rem',
+                textDecoration: 'underline'
+              }}
+            >
+              Cambiar Rol (Volver)
+            </button>
+          )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );

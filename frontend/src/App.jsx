@@ -10,6 +10,18 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // FORCE LOGOUT TEMPORARY FIX FOR USER
+    if (!localStorage.getItem('hasForcedLogoutV2')) {
+      if (isSupabaseConfigured && supabase) {
+        supabase.auth.signOut();
+      }
+      localStorage.setItem('hasForcedLogoutV2', 'true');
+      setIsAuthenticated(false);
+      setSession(null);
+      setLoading(false);
+      return;
+    }
+
     if (isSupabaseConfigured && supabase) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
@@ -59,10 +71,14 @@ const App = () => {
   return (
     <>
       {isAuthenticated ? (
-        <Dashboard 
-          userId={session?.user?.id}
-          onLogout={handleLogout}
-        />
+        localStorage.getItem('userRole') === 'guest' ? (
+          <CompanionApp leagueId={null} currentUser={session?.user} onLogout={handleLogout} />
+        ) : (
+          <Dashboard 
+            userId={session?.user?.id}
+            onLogout={handleLogout}
+          />
+        )
       ) : (
         <Login onLogin={() => setIsAuthenticated(true)} />
       )}

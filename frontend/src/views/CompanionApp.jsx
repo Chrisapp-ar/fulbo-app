@@ -45,7 +45,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   
   const [activeEvent, setActiveEvent] = useState(null);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [regName, setRegName] = useState(currentUser?.user_metadata?.full_name || '');
+  const [regName, setRegName] = useState(currentUser?.user_metadata?.full_name || localStorage.getItem('guestName') || '');
   const [regRole, setRegRole] = useState('Mediocampo');
   const [regStats, setRegStats] = useState({ pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
   const [regSuccess, setRegSuccess] = useState(false);
@@ -229,6 +229,28 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     }
   };
 
+  const handleCashPayment = async (playerId) => {
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase.from('league_state').select('active_event').eq('host_id', leagueId).single();
+        if (error) throw error;
+        
+        if (data && data.active_event) {
+          const currentEvent = data.active_event;
+          if (!currentEvent.paymentsMap) currentEvent.paymentsMap = {};
+          currentEvent.paymentsMap[playerId] = 'cash';
+          
+          const { error: updateError } = await supabase.from('league_state').update({ active_event: currentEvent }).eq('host_id', leagueId);
+          if (updateError) throw updateError;
+        }
+      }
+      setPaymentSuccessMsg(true);
+    } catch (e) {
+      console.error(e);
+      alert("Error al registrar el pago en efectivo.");
+    }
+  };
+
   // Detectar redirección de pago exitoso
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -325,6 +347,11 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   useEffect(() => {
     const isInvalidId = !leagueId || leagueId === 'null' || leagueId === 'undefined';
     if (isSupabaseConfigured && supabase && !isInvalidId) {
+      if (!leagueId) {
+        setSubscriptionChecking(false);
+        setLoading(false);
+        return;
+      }
       const fetchLeague = async () => {
         try {
           // Fetch host's subscription details
@@ -371,8 +398,9 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         }
         setLoading(false);
       };
-      
       fetchLeague();
+
+      if (!leagueId) return;
 
       // Suscribirse a cambios en tiempo real en league_state sin filtro UUID
       const channel = supabase
@@ -789,6 +817,28 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                   >
                     💳 Pagar con Mercado Pago
                   </button>
+                  
+                  <button 
+                    onClick={() => handleCashPayment(currentUser?.id)}
+                    style={{ 
+                      background: 'transparent',
+                      border: '1px solid #00b347',
+                      color: '#00b347',
+                      padding: '0.8rem 1rem',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '0.9rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '100%',
+                      marginTop: '0.5rem',
+                      boxShadow: '0 0 10px rgba(0,179,71,0.1)'
+                    }}
+                  >
+                    💵 Pago en Efectivo (Avisar al Host)
+                  </button>
                 </div>
               )}
 
@@ -974,40 +1024,6 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           </p>
         </div>
       </header>
-
-      {/* Mi Ficha Táctica Destacada */}
-      {myPlayerCard && (
-        <div 
-          onClick={() => setSelectedPlayer(myPlayerCard)}
-          className="glass-panel" 
-          style={{ 
-            maxWidth: '600px', 
-            margin: '0 auto 1.5rem auto', 
-            padding: '0.8rem 1rem', 
-            border: '1px solid var(--ultimate-gold)', 
-            background: 'rgba(255, 215, 0, 0.05)', 
-            cursor: 'pointer', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between',
-            borderRadius: '10px',
-            boxShadow: '0 0 10px rgba(255,215,0,0.1)',
-            transition: 'transform 0.2s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>🏆</span>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ color: 'var(--ultimate-gold)', fontWeight: 'bold', fontSize: '0.85rem', letterSpacing: '0.5px', fontFamily: 'var(--font-primary)' }}>MI FICHA TÁCTICA</div>
-              <div style={{ color: 'white', fontSize: '0.75rem' }}>Ver mi carta y stats ({Math.round(myPlayerCard.glicko?.rating || 1500)} MMR)</div>
-            </div>
-          </div>
-          <span style={{ color: 'var(--ultimate-gold)', fontSize: '1.2rem' }}>➔</span>
-        </div>
-      )}
-
       {/* Barra de Navegación Inferior */}
       <nav style={{ 
         position: 'fixed', 
@@ -1019,96 +1035,37 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         borderTop: '1px solid rgba(255,255,255,0.1)', 
         display: 'flex', 
         justifyContent: 'space-around', 
-        padding: '0.6rem 0.5rem', 
+        padding: '0.6rem 0.2rem', 
         paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom))',
-        zIndex: 1000 
+        zIndex: 1000,
+        overflowX: 'auto'
       }}>
-        <button 
-          onClick={() => setActiveTab('active_matches')}
-          style={{
-            background: 'transparent',
-            color: activeTab === 'active_matches' ? 'var(--volt-lime)' : 'var(--off-white)',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.3rem',
-            cursor: 'pointer',
-            flex: 1
-          }}
-        >
-          <span style={{ fontSize: '1.4rem' }}>📅</span>
+        <button onClick={() => setActiveTab('active_matches')} style={{ background: 'transparent', color: activeTab === 'active_matches' ? 'var(--volt-lime)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
+          <span style={{ fontSize: '1.4rem' }}>⚽</span>
           <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Partidos</span>
         </button>
 
-        <button 
-          onClick={() => setActiveTab('leaderboard')}
-          style={{
-            background: 'transparent',
-            color: activeTab === 'leaderboard' ? 'var(--volt-lime)' : 'var(--off-white)',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.3rem',
-            cursor: 'pointer',
-            flex: 1
-          }}
-        >
+        <button onClick={() => setActiveTab('mificha')} style={{ background: 'transparent', color: activeTab === 'mificha' ? 'var(--ultimate-gold)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
+          <span style={{ fontSize: '1.4rem' }}>🛡️</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Mi Ficha</span>
+        </button>
+
+        <button onClick={() => setActiveTab('leaderboard')} style={{ background: 'transparent', color: activeTab === 'leaderboard' ? 'var(--volt-lime)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
           <span style={{ fontSize: '1.4rem' }}>🏆</span>
           <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Ranking</span>
         </button>
 
-        <button 
-          onClick={() => setActiveTab('history')}
-          style={{
-            background: 'transparent',
-            color: activeTab === 'history' ? 'var(--volt-lime)' : 'var(--off-white)',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.3rem',
-            cursor: 'pointer',
-            flex: 1
-          }}
-        >
+        <button onClick={() => setActiveTab('history')} style={{ background: 'transparent', color: activeTab === 'history' ? 'var(--volt-lime)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
           <span style={{ fontSize: '1.4rem' }}>📚</span>
           <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Historial</span>
         </button>
 
-        <button 
-          onClick={() => setActiveTab('hospital')}
-          style={{
-            background: 'transparent',
-            color: activeTab === 'hospital' ? '#FF3B30' : 'var(--off-white)',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.3rem',
-            cursor: 'pointer',
-            flex: 1
-          }}
-        >
-          <span style={{ fontSize: '1.4rem' }}>🏥</span>
-          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Clínica</span>
+        <button onClick={() => setActiveTab('hospital')} style={{ background: 'transparent', color: activeTab === 'hospital' ? '#FF3B30' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
+          <span style={{ fontSize: '1.4rem' }}>🚑</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Hospital</span>
         </button>
-
-        <button 
-          onClick={onLogout}
-          style={{
-            background: 'transparent',
-            color: 'var(--crimson-red)',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.3rem',
-            cursor: 'pointer',
-            flex: 1
-          }}
-        >
+        
+        <button onClick={onLogout} style={{ background: 'transparent', color: 'var(--crimson-red)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
           <span style={{ fontSize: '1.4rem' }}>🚪</span>
           <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Salir</span>
         </button>
@@ -1116,7 +1073,13 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
 
       {activeTab === 'active_matches' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
-          {activeEvent && !isEventExpired(activeEvent) ? (
+          {!leagueId ? (
+            <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
+              <span style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}>🔗</span>
+              <h3>Bienvenido a Fulbo</h3>
+              <p>No tienes un enlace de liga activo. Para unirte a un partido, pídele a tu Organizador que te envíe el link de invitación.</p>
+            </div>
+          ) : activeEvent && !isEventExpired(activeEvent) ? (
             <div className="glass-panel" style={{ padding: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
               {/* Header Info */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem', marginBottom: '1.2rem' }}>
@@ -1270,7 +1233,11 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                                   </div>
                                 </div>
                                 
-                                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '6px' }}>
+                                {(() => {
+                                  const isExistingPlayer = regName.trim().length > 0 && roster.some(p => p.name && p.name.toLowerCase().trim() === regName.toLowerCase().trim());
+                                  return !isExistingPlayer ? (
+                                    <>
+                                      <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '6px' }}>
                                   <h5 style={{ color: 'var(--pure-white)', margin: '0 0 0.6rem 0', fontSize: '0.8rem', textAlign: 'center', fontWeight: 'bold' }}>ATRIBUTOS TÁCTICOS</h5>
                                   {['pac', 'sho', 'pas', 'dri', 'def', 'phy'].map(attr => (
                                     <div key={attr} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.4rem' }}>
@@ -1285,6 +1252,13 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                                   <span style={{ color: 'white', fontWeight: 'bold', fontSize: '0.8rem' }}>OVR PROYECTADO:</span>
                                   <span className="glow-text-volt" style={{ fontSize: '1.5rem', fontWeight: '900' }}>{Math.round((regStats.pac + regStats.sho + regStats.pas + regStats.dri + regStats.def + regStats.phy)/6)}</span>
                                 </div>
+                                    </>
+                                  ) : (
+                                    <div style={{ background: 'rgba(0,240,255,0.1)', padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--electric-cyan)', textAlign: 'center' }}>
+                                      <span style={{ color: 'var(--electric-cyan)', fontSize: '0.8rem', fontWeight: 'bold' }}>✓ Ya tienes tu Ficha Táctica en el servidor</span>
+                                    </div>
+                                  );
+                                })()}
                                 
                                 <button type="submit" className="btn-primary" style={{ padding: '0.7rem', fontSize: '0.9rem' }}>ENVIAR FICHA AL DRAFT</button>
                               </form>
@@ -1397,193 +1371,260 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       )}
 
       {activeTab === 'leaderboard' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxWidth: '600px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '30px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <button 
-                onClick={() => setLeaderboardFilter('active')} 
-                style={{ 
-                  background: leaderboardFilter === 'active' ? 'linear-gradient(135deg, var(--volt-lime) 0%, #128C7E 100%)' : 'transparent', 
-                  color: leaderboardFilter === 'active' ? 'black' : 'var(--off-white)',
-                  border: 'none',
-                  borderRadius: '25px',
-                  padding: '0.5rem 1.2rem',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s'
-                }}
-              >
-                🏃 ACTIVOS
-              </button>
-              <button 
-                onClick={() => setLeaderboardFilter('inactive')} 
-                style={{ 
-                  background: leaderboardFilter === 'inactive' ? 'linear-gradient(135deg, var(--crimson-red) 0%, #8b0000 100%)' : 'transparent', 
-                  color: leaderboardFilter === 'inactive' ? 'white' : 'var(--off-white)',
-                  border: 'none',
-                  borderRadius: '25px',
-                  padding: '0.5rem 1.2rem',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s'
-                }}
-              >
-                💤 INACTIVOS
-              </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
+          {!leagueId ? (
+            <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
+              <h3>Leaderboard No Disponible</h3>
+              <p>Ingresa a una liga específica usando su enlace de invitación para ver el ranking.</p>
             </div>
-          </div>
-
-          {(() => {
-            const playedPlayers = roster.filter(p => (p.history?.pj || 0) > 0);
-            const filteredRoster = playedPlayers.filter(p => {
-              const lastTime = p.lastMatchDate ? new Date(p.lastMatchDate).getTime() : Date.now();
-              const isActive = (Date.now() - lastTime) < 30 * 24 * 60 * 60 * 1000;
-              return leaderboardFilter === 'active' ? isActive : !isActive;
-            });
-            const sortedRoster = [...filteredRoster].sort((a, b) => (b.glicko?.rating || 1500) - (a.glicko?.rating || 1500));
-
-            if (sortedRoster.length === 0) {
-              return (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚽</div>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}>No hay jugadores en esta categoría.</p>
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '30px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <button 
+                    onClick={() => setLeaderboardFilter('active')} 
+                    style={{ 
+                      background: leaderboardFilter === 'active' ? 'linear-gradient(135deg, var(--volt-lime) 0%, #128C7E 100%)' : 'transparent', 
+                      color: leaderboardFilter === 'active' ? 'black' : 'var(--off-white)',
+                      border: 'none',
+                      borderRadius: '25px',
+                      padding: '0.5rem 1.2rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s'
+                    }}
+                  >
+                    🏃 ACTIVOS
+                  </button>
+                  <button 
+                    onClick={() => setLeaderboardFilter('inactive')} 
+                    style={{ 
+                      background: leaderboardFilter === 'inactive' ? 'linear-gradient(135deg, var(--crimson-red) 0%, #8b0000 100%)' : 'transparent', 
+                      color: leaderboardFilter === 'inactive' ? 'white' : 'var(--off-white)',
+                      border: 'none',
+                      borderRadius: '25px',
+                      padding: '0.5rem 1.2rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s'
+                    }}
+                  >
+                    💤 INACTIVOS
+                  </button>
                 </div>
-              );
-            }
+              </div>
 
-            return sortedRoster.map((p, idx) => {
-              const pj = p.history?.pj || 0;
-              const pg = p.history?.pg || 0;
-              const pe = p.history?.pe || 0;
-              const pp = p.history?.pp || 0;
-              const goals = p.history?.goals || 0;
-              const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
-              const mmr = Math.round(p.glicko?.rating || 1500);
+              {(() => {
+                const playedPlayers = roster.filter(p => (p.history?.pj || 0) > 0);
+                const filteredRoster = playedPlayers.filter(p => {
+                  const lastTime = p.lastMatchDate ? new Date(p.lastMatchDate).getTime() : Date.now();
+                  const isActive = (Date.now() - lastTime) < 30 * 24 * 60 * 60 * 1000;
+                  return leaderboardFilter === 'active' ? isActive : !isActive;
+                });
+                const sortedRoster = [...filteredRoster].sort((a, b) => (b.glicko?.rating || 1500) - (a.glicko?.rating || 1500));
+
+                if (sortedRoster.length === 0) {
+                  return (
+                    <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                      <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚽</div>
+                      <p style={{ margin: 0, fontSize: '0.9rem' }}>No hay jugadores en esta categoría.</p>
+                    </div>
+                  );
+                }
+
+                return sortedRoster.map((p, idx) => {
+                  const pj = p.history?.pj || 0;
+                  const pg = p.history?.pg || 0;
+                  const pe = p.history?.pe || 0;
+                  const pp = p.history?.pp || 0;
+                  const goals = p.history?.goals || 0;
+                  const winRate = pj > 0 ? Math.round((pg/pj)*100) : 0;
+                  const mmr = Math.round(p.glicko?.rating || 1500);
+                  
+                  return (
+                    <div 
+                      key={p.id} 
+                      onClick={() => setSelectedPlayer(p)} 
+                      className="glass-panel"
+                      style={{ 
+                        borderRadius: '16px', 
+                        padding: '1.2rem', 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        gap: '0.8rem', 
+                        border: '1px solid rgba(255,255,255,0.08)', 
+                        background: 'rgba(255,255,255,0.03)',
+                        backdropFilter: 'blur(10px)',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(204,255,0,0.08)';
+                        e.currentTarget.style.borderColor = 'rgba(204,255,0,0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = 'none';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                      }}
+                    >
+                      {/* Top Header Row */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                          {/* Rank Indicator */}
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            width: '28px', 
+                            height: '28px', 
+                            borderRadius: '50%',
+                            background: idx === 0 ? 'rgba(255, 215, 0, 0.2)' : idx === 1 ? 'rgba(192, 192, 192, 0.2)' : idx === 2 ? 'rgba(205, 127, 50, 0.2)' : 'rgba(255,255,255,0.05)',
+                            border: idx === 0 ? '1px solid var(--ultimate-gold)' : idx === 1 ? '1px solid #c0c0c0' : idx === 2 ? '1px solid #cd7f32' : '1px solid rgba(255,255,255,0.1)',
+                            color: idx === 0 ? 'var(--ultimate-gold)' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : 'var(--off-white)',
+                            fontWeight: 'bold', 
+                            fontSize: '0.9rem' 
+                          }}>
+                            {idx + 1}
+                          </div>
+
+                          {/* Avatar */}
+                          <div style={{ 
+                            width: '45px', 
+                            height: '45px', 
+                            borderRadius: '50%', 
+                            background: 'black', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            overflow: 'hidden',
+                            border: '1px solid rgba(255,255,255,0.1)'
+                          }}>
+                            {p.avatar?.startsWith('data:image') ? (
+                              <img src={p.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                            ) : (
+                              <span style={{ fontSize: '1.4rem' }}>{p.avatar || '👤'}</span>
+                            )}
+                          </div>
+
+                          {/* Name and Role */}
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              {p.name}
+                              {idx === 0 && <span style={{ fontSize: '1rem' }}>👑</span>}
+                            </div>
+                            <div style={{ color: 'var(--off-white)', fontSize: '0.75rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              {p.role}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* MMR and Win Rate */}
+                        <div style={{ textAlign: 'right' }}>
+                          <div className="glow-text-volt" style={{ fontSize: '1.3rem', fontWeight: '900', fontFamily: 'var(--font-primary)' }}>
+                            {mmr} <span style={{ fontSize: '0.7rem', color: 'var(--off-white)', fontWeight: 'normal' }}>MMR</span>
+                          </div>
+                          <div style={{ color: 'var(--electric-cyan)', fontSize: '0.75rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                            {winRate}% WR
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Divider line */}
+                      <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '0.2rem 0' }} />
+
+                      {/* Stats Grid Footer */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem', textAlign: 'center' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                          <div style={{ color: 'var(--off-white)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PJ</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'white' }}>{pj}</div>
+                        </div>
+                        <div style={{ background: 'rgba(204,255,0,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(204,255,0,0.05)' }}>
+                          <div style={{ color: 'var(--volt-lime)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PG</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'var(--volt-lime)' }}>{pg}</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                          <div style={{ color: 'var(--off-white)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PE</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'white' }}>{pe}</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,59,48,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(255,59,48,0.05)' }}>
+                          <div style={{ color: 'var(--crimson-red)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PP</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'var(--crimson-red)' }}>{pp}</div>
+                        </div>
+                        <div style={{ background: 'rgba(0,240,255,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(0,240,255,0.05)' }}>
+                          <div style={{ color: 'var(--electric-cyan)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>GOLES</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'var(--electric-cyan)' }}>{goals}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'mificha' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
+          {!leagueId ? (
+            <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
+              <h3>Ficha Táctica No Disponible</h3>
+              <p>Ingresa a una liga específica usando su enlace de invitación para ver tu ficha.</p>
+            </div>
+          ) : myPlayerCard ? (
+            <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', border: '1px solid var(--ultimate-gold)' }}>
+              <h2 className="glow-text-volt" style={{ color: 'var(--ultimate-gold)' }}>MI FICHA TÁCTICA</h2>
               
-              return (
-                <div 
-                  key={p.id} 
-                  onClick={() => setSelectedPlayer(p)} 
-                  className="glass-panel"
-                  style={{ 
-                    borderRadius: '16px', 
-                    padding: '1.2rem', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    gap: '0.8rem', 
-                    border: '1px solid rgba(255,255,255,0.08)', 
-                    background: 'rgba(255,255,255,0.03)',
-                    backdropFilter: 'blur(10px)',
-                    cursor: 'pointer',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 8px 20px rgba(204,255,0,0.08)';
-                    e.currentTarget.style.borderColor = 'rgba(204,255,0,0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
-                  }}
-                >
-                  {/* Top Header Row */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                      {/* Rank Indicator */}
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        width: '28px', 
-                        height: '28px', 
-                        borderRadius: '50%',
-                        background: idx === 0 ? 'rgba(255, 215, 0, 0.2)' : idx === 1 ? 'rgba(192, 192, 192, 0.2)' : idx === 2 ? 'rgba(205, 127, 50, 0.2)' : 'rgba(255,255,255,0.05)',
-                        border: idx === 0 ? '1px solid var(--ultimate-gold)' : idx === 1 ? '1px solid #c0c0c0' : idx === 2 ? '1px solid #cd7f32' : '1px solid rgba(255,255,255,0.1)',
-                        color: idx === 0 ? 'var(--ultimate-gold)' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : 'var(--off-white)',
-                        fontWeight: 'bold', 
-                        fontSize: '0.9rem' 
-                      }}>
-                        {idx + 1}
-                      </div>
+              <div style={{ margin: '2rem 0', display: 'flex', justifyContent: 'center' }}>
+                <PlayerCard 
+                  name={myPlayerCard.name}
+                  position={myPlayerCard.role.substring(0,3).toUpperCase()}
+                  stats={myPlayerCard.stats}
+                  avatar={myPlayerCard.avatar}
+                  ovr={calcOvr(myPlayerCard)}
+                  stamina={myPlayerCard.condition?.stamina ?? 100}
+                  badges={getPlayerBadges(myPlayerCard)}
+                  isInjured={myPlayerCard.condition?.isResting}
+                />
+              </div>
 
-                      {/* Avatar */}
-                      <div style={{ 
-                        width: '45px', 
-                        height: '45px', 
-                        borderRadius: '50%', 
-                        background: 'black', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        overflow: 'hidden',
-                        border: '1px solid rgba(255,255,255,0.1)'
-                      }}>
-                        {p.avatar?.startsWith('data:image') ? (
-                          <img src={p.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                        ) : (
-                          <span style={{ fontSize: '1.4rem' }}>{p.avatar || '👤'}</span>
-                        )}
-                      </div>
+              <button 
+                onClick={() => {
+                  setSelectedPlayer(myPlayerCard);
+                  setIsEditingSelf(true);
+                }} 
+                className="btn-primary" 
+                style={{ width: '100%', padding: '0.8rem', fontSize: '1rem', background: 'var(--electric-cyan)', borderColor: 'var(--electric-cyan)', color: 'black', fontWeight: 'bold' }}
+              >
+                ⚙️ MODIFICAR MIS SKILLS
+              </button>
 
-                      {/* Name and Role */}
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          {p.name}
-                          {idx === 0 && <span style={{ fontSize: '1rem' }}>👑</span>}
-                        </div>
-                        <div style={{ color: 'var(--off-white)', fontSize: '0.75rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          {p.role}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* MMR and Win Rate */}
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="glow-text-volt" style={{ fontSize: '1.3rem', fontWeight: '900', fontFamily: 'var(--font-primary)' }}>
-                        {mmr} <span style={{ fontSize: '0.7rem', color: 'var(--off-white)', fontWeight: 'normal' }}>MMR</span>
-                      </div>
-                      <div style={{ color: 'var(--electric-cyan)', fontSize: '0.75rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                        {winRate}% WR
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Divider line */}
-                  <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '0.2rem 0' }} />
-
-                  {/* Stats Grid Footer */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem', textAlign: 'center' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                      <div style={{ color: 'var(--off-white)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PJ</div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'white' }}>{pj}</div>
-                    </div>
-                    <div style={{ background: 'rgba(204,255,0,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(204,255,0,0.05)' }}>
-                      <div style={{ color: 'var(--volt-lime)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PG</div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'var(--volt-lime)' }}>{pg}</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                      <div style={{ color: 'var(--off-white)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PE</div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'white' }}>{pe}</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,59,48,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(255,59,48,0.05)' }}>
-                      <div style={{ color: 'var(--crimson-red)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>PP</div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'var(--crimson-red)' }}>{pp}</div>
-                    </div>
-                    <div style={{ background: 'rgba(0,240,255,0.02)', padding: '0.4rem', borderRadius: '8px', border: '1px solid rgba(0,240,255,0.05)' }}>
-                      <div style={{ color: 'var(--electric-cyan)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px' }}>GOLES</div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '0.1rem', color: 'var(--electric-cyan)' }}>{goals}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            });
-          })()}
+              <div style={{ marginTop: '2rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '10px', textAlign: 'left', borderLeft: '4px solid var(--volt-lime)' }}>
+                <h4 style={{ color: 'var(--volt-lime)', margin: '0 0 0.5rem 0' }}>📈 EVOLUCIÓN AUTOMÁTICA (IA)</h4>
+                <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', lineHeight: '1.5', margin: 0 }}>
+                  Tu ficha táctica evoluciona de a poco con cada partido:
+                  <br/><br/>
+                  • <b>Victorias:</b> Todo tu equipo suma +1 a todos los skills.
+                  <br/>
+                  • <b>Goles Anotados:</b> Sumas +1 en Tiro (SHO) por cada gol a favor.
+                  <br/><br/>
+                  <i>La IA actualizará tu carta automáticamente al finalizar cada evento.</i>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
+              <span style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}>🛡️</span>
+              <h3>No estás registrado en la liga activa</h3>
+              <p>Inscríbete a un evento para ver tu ficha táctica.</p>
+            </div>
+          )}
         </div>
       )}
 
