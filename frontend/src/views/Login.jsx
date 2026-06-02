@@ -29,7 +29,7 @@ const Login = ({ isGuest = false, onLogin }) => {
     setErrorMsg('');
     
     if (!isSupabaseConfigured || !supabase) {
-      setErrorMsg('FATAL ERROR: Cloud Security Gateway no configurado. Faltan variables de entorno en Vercel.');
+      setErrorMsg(`FATAL ERROR: Cloud Security Gateway no configurado. VITE_SUPABASE_URL está presente: ${!!import.meta.env.VITE_SUPABASE_URL}, VITE_SUPABASE_ANON_KEY está presente: ${!!import.meta.env.VITE_SUPABASE_ANON_KEY}`);
       return;
     }
 
@@ -50,7 +50,7 @@ const Login = ({ isGuest = false, onLogin }) => {
     setErrorMsg('');
     
     if (!isSupabaseConfigured || !supabase) {
-      setErrorMsg('FATAL ERROR: Cloud Security Gateway no configurado.');
+      setErrorMsg(`FATAL ERROR: Cloud Security Gateway no configurado. URL present: ${!!import.meta.env.VITE_SUPABASE_URL}, KEY present: ${!!import.meta.env.VITE_SUPABASE_ANON_KEY}`);
       return;
     }
 
@@ -427,3 +427,4 @@ const Login = ({ isGuest = false, onLogin }) => {
 };
 
 export default Login;
+

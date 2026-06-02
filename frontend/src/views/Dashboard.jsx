@@ -549,6 +549,30 @@ const Dashboard = ({ userId, onLogout }) => {
                 </div>
               </div>
             )}
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+              <button 
+                onClick={() => {
+                   healPlayer(selectedPlayerDetails.id);
+                   setSelectedPlayerDetails(null);
+                }} 
+                className="btn-primary" 
+                style={{ flex: 1, background: 'rgba(255,59,48,0.1)', borderColor: '#FF3B30', color: '#FF3B30', padding: '0.8rem', fontSize: '0.9rem', fontWeight: 'bold' }}
+              >
+                🚑 HOSPITAL (Lesión/Alta)
+              </button>
+              <button 
+                onClick={() => {
+                   startEdit(selectedPlayerDetails);
+                   setViewMode('builder');
+                   setSelectedPlayerDetails(null);
+                }} 
+                className="btn-primary" 
+                style={{ flex: 1, background: 'var(--electric-cyan)', borderColor: 'var(--electric-cyan)', color: 'black', padding: '0.8rem', fontSize: '0.9rem', fontWeight: 'bold' }}
+              >
+                ⚙️ MEJORAR SKILLS
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -3274,17 +3298,9 @@ const Dashboard = ({ userId, onLogout }) => {
           <span style={{ fontSize: '1.2rem' }}>📚</span>
           <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Histórico</span>
         </button>
-        <button onClick={() => setViewMode('hospital')} style={{ background: 'transparent', color: viewMode === 'hospital' ? '#FF3B30' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
-          <span style={{ fontSize: '1.2rem' }}>🚑</span>
-          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Hospital</span>
-        </button>
         <button onClick={() => setViewMode('dreamteam')} style={{ background: 'transparent', color: viewMode === 'dreamteam' ? 'var(--ultimate-gold)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
           <span style={{ fontSize: '1.2rem' }}>🏆</span>
           <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>DreamTeam</span>
-        </button>
-        <button onClick={copyLeagueLink} style={{ background: 'transparent', color: 'var(--electric-cyan)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
-          <span style={{ fontSize: '1.2rem' }}>🔗</span>
-          <span style={{ fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Compartir</span>
         </button>
         <button onClick={onLogout} style={{ background: 'transparent', color: 'var(--crimson-red)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '45px' }}>
           <span style={{ fontSize: '1.2rem' }}>🚪</span>

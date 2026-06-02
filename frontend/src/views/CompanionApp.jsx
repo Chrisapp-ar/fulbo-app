@@ -558,6 +558,41 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     setIsEditingSelf(false);
   };
 
+  const handleToggleInjury = async (playerId) => {
+    if (!isSupabaseConfigured || !supabase) {
+      alert("La base de datos no está configurada.");
+      return;
+    }
+    const previousRoster = [...roster];
+    const updatedRoster = roster.map(p => {
+      if (p.id === playerId) {
+        return {
+          ...p,
+          condition: {
+            ...p.condition,
+            isResting: !(p.condition?.isResting || false)
+          }
+        };
+      }
+      return p;
+    });
+    setRoster(updatedRoster);
+    setSelectedPlayer(updatedRoster.find(p => p.id === playerId));
+    try {
+      const { error } = await supabase
+        .from('league_state')
+        .update({ roster: updatedRoster, updated_at: new Date().toISOString() })
+        .eq('host_id', leagueId);
+      if (error) throw error;
+    } catch (err) {
+      console.error("Error toggling injury:", err);
+      alert("Error al actualizar estado: " + err.message);
+      setRoster(previousRoster);
+      setSelectedPlayer(previousRoster.find(p => p.id === playerId));
+    }
+  };
+
+
   if (!leagueExists) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>No se pudo encontrar la liga. Verifica que el enlace sea correcto.</div>;
   }
@@ -734,13 +769,22 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                    onClick={isMyCard ? () => setIsEditingSelf(true) : undefined}
                 />
                 {isMyCard && (
-                  <button 
-                    onClick={() => setIsEditingSelf(true)} 
-                    className="btn-primary" 
-                    style={{ marginTop: '1.5rem', width: 'auto', padding: '0.6rem 1.5rem', fontSize: '0.9rem', background: 'var(--electric-cyan)', borderColor: 'var(--electric-cyan)', color: 'black', fontWeight: 'bold' }}
-                  >
-                    ✏️ EDITAR MIS SKILLS
-                  </button>
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', width: '100%', justifyContent: 'center' }}>
+                    <button 
+                      onClick={() => handleToggleInjury(selectedPlayer.id)} 
+                      className="btn-primary" 
+                      style={{ width: 'auto', padding: '0.6rem 1.5rem', fontSize: '0.9rem', background: 'rgba(255,59,48,0.1)', borderColor: '#FF3B30', color: '#FF3B30', fontWeight: 'bold' }}
+                    >
+                      🚑 HOSPITAL
+                    </button>
+                    <button 
+                      onClick={() => setIsEditingSelf(true)} 
+                      className="btn-primary" 
+                      style={{ width: 'auto', padding: '0.6rem 1.5rem', fontSize: '0.9rem', background: 'var(--electric-cyan)', borderColor: 'var(--electric-cyan)', color: 'black', fontWeight: 'bold' }}
+                    >
+                      ✏️ EDITAR SKILLS
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1060,10 +1104,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Historial</span>
         </button>
 
-        <button onClick={() => setActiveTab('hospital')} style={{ background: 'transparent', color: activeTab === 'hospital' ? '#FF3B30' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
-          <span style={{ fontSize: '1.4rem' }}>🚑</span>
-          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>Hospital</span>
-        </button>
+
         
         <button onClick={onLogout} style={{ background: 'transparent', color: 'var(--crimson-red)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
           <span style={{ fontSize: '1.4rem' }}>🚪</span>
