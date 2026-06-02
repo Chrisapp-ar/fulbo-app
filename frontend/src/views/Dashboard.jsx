@@ -2995,7 +2995,12 @@ const Dashboard = ({ userId, onLogout }) => {
                             </div>
                           )}
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: 'white' }}>
+                            <span style={{ 
+                              fontWeight: 'bold', 
+                              fontSize: '0.9rem', 
+                              color: p.condition?.isResting ? '#FF3B30' : 'white',
+                              textDecoration: p.condition?.isResting ? 'line-through' : 'none'
+                            }}>
                               {p.name}
                             </span>
                             <span style={{ fontSize: '0.7rem', color: p.role === 'Ancla' ? 'var(--electric-cyan)' : 'var(--off-white)' }}>{p.role}</span>
@@ -3051,7 +3056,13 @@ const Dashboard = ({ userId, onLogout }) => {
                               )}
                             </div>
                           )}
-                          <button onClick={() => healPlayer(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.4 }} title="Reportar Lesión (Hospital)">🤕</button>
+                          <button 
+                            onClick={() => healPlayer(p.id)} 
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', opacity: p.condition?.isResting ? 1 : 0.4 }} 
+                            title={p.condition?.isResting ? "Dar Alta Médica" : "Reportar Lesión (Hospital)"}
+                          >
+                            {p.condition?.isResting ? '🚑' : '🤕'}
+                          </button>
                           <button onClick={() => startEdit(p)} style={{ background: 'none', border: 'none', color: 'var(--electric-cyan)', cursor: 'pointer', fontSize: '1rem', opacity: 0.8 }} title="Editar jugador">✏️</button>
                           <button 
                             onClick={() => removePlayerFromEvent(p.name, reg.id)} 

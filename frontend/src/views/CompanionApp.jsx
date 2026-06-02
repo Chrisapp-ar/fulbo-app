@@ -773,9 +773,9 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                     <button 
                       onClick={() => handleToggleInjury(selectedPlayer.id)} 
                       className="btn-primary" 
-                      style={{ width: 'auto', padding: '0.6rem 1.5rem', fontSize: '0.9rem', background: 'rgba(255,59,48,0.1)', borderColor: '#FF3B30', color: '#FF3B30', fontWeight: 'bold' }}
+                      style={{ width: 'auto', padding: '0.6rem 1.5rem', fontSize: '0.9rem', background: selectedPlayer.condition?.isResting ? 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)' : 'rgba(255,59,48,0.1)', borderColor: selectedPlayer.condition?.isResting ? '#25D366' : '#FF3B30', color: selectedPlayer.condition?.isResting ? 'white' : '#FF3B30', fontWeight: 'bold' }}
                     >
-                      🚑 HOSPITAL
+                      {selectedPlayer.condition?.isResting ? '✅ DAR ALTA' : '🚑 HOSPITAL'}
                     </button>
                     <button 
                       onClick={() => setIsEditingSelf(true)} 
