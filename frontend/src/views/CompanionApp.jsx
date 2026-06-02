@@ -1498,12 +1498,34 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                   >
                     💤 INACTIVOS
                   </button>
+                  <button 
+                    onClick={() => setLeaderboardFilter('hospital')} 
+                    style={{ 
+                      background: leaderboardFilter === 'hospital' ? 'linear-gradient(135deg, #FF3B30 0%, #8b0000 100%)' : 'transparent', 
+                      color: leaderboardFilter === 'hospital' ? 'white' : 'var(--off-white)',
+                      border: 'none',
+                      borderRadius: '25px',
+                      padding: '0.5rem 1.2rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s'
+                    }}
+                  >
+                    🚑 HOSPITAL
+                  </button>
                 </div>
               </div>
 
               {(() => {
-                const playedPlayers = roster.filter(p => (p.history?.pj || 0) > 0);
-                const filteredRoster = playedPlayers.filter(p => {
+                const filteredRoster = roster.filter(p => {
+                  if (leaderboardFilter === 'hospital') {
+                    return p.condition?.isResting === true;
+                  }
+                  
+                  if (p.condition?.isResting) return false;
+                  if ((p.history?.pj || 0) === 0) return false;
+
                   const lastTime = p.lastMatchDate ? new Date(p.lastMatchDate).getTime() : Date.now();
                   const isActive = (Date.now() - lastTime) < 30 * 24 * 60 * 60 * 1000;
                   return leaderboardFilter === 'active' ? isActive : !isActive;
@@ -1758,45 +1780,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         </div>
       )}
 
-      {activeTab === 'hospital' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
-          <div className="glass-panel" style={{ border: '1px solid rgba(255, 59, 48, 0.3)', padding: '1.2rem', background: 'rgba(255, 59, 48, 0.02)', display: 'flex', alignItems: 'center', gap: '0.8rem', borderRadius: '8px' }}>
-            <span style={{ fontSize: '1.8rem' }}>🏥</span>
-            <div>
-              <h4 style={{ margin: 0, color: '#FF3B30', fontSize: '0.9rem', fontWeight: 'bold' }}>JUGADORES LESIONADOS</h4>
-              <p style={{ margin: '0.1rem 0 0 0', fontSize: '0.75rem', color: 'var(--off-white)' }}>Jugadores inactivos temporalmente por baja médica.</p>
-            </div>
-          </div>
-          {roster.filter(p => p.condition?.isResting).length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💚</div>
-              <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>¡Sin lesionados en el club!</p>
-              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--off-white)' }}>Todos los jugadores están sanos y listos para jugar.</p>
-            </div>
-          ) : (
-            roster.filter(p => p.condition?.isResting).map((p) => (
-              <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(255, 59, 48, 0.05)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255, 59, 48, 0.2)', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{ fontSize: '1.2rem' }}>🤕</span>
-                  <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(255,59,48,0.3)' }}>
-                    {p.avatar?.startsWith('data:image') ? <img src={p.avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{fontSize:'1.5rem'}}>{p.avatar || '👤'}</span>}
-                  </div>
-                  <div>
-                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{p.name}</div>
-                    <div style={{ color: 'var(--off-white)', fontSize: '0.75rem' }}>
-                      {p.role} | Stamina: <span style={{ color: '#FF3B30', fontWeight: 'bold' }}>{p.condition?.stamina ?? 50}%</span>
-                    </div>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div className="glow-text-volt" style={{ fontSize: '1.1rem', fontWeight: '900', color: '#FF3B30', textShadow: '0 0 10px rgba(255,59,48,0.4)' }}>EN CLÍNICA</div>
-                  <div style={{ color: 'var(--off-white)', fontSize: '0.7rem' }}>En recuperación</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+
     </div>
   );
 };
