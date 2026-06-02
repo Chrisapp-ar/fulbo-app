@@ -2193,8 +2193,14 @@ const Dashboard = ({ userId, onLogout }) => {
   }
 
   if (viewMode === 'stats') {
-    const playedPlayers = roster.filter(p => (p.history?.pj || 0) > 0);
-    const filteredRoster = playedPlayers.filter(p => {
+    const filteredRoster = roster.filter(p => {
+      if (leaderboardFilter === 'hospital') {
+        return p.condition?.isResting === true;
+      }
+      
+      if (p.condition?.isResting) return false;
+      if ((p.history?.pj || 0) === 0) return false;
+
       const lastTime = p.lastMatchDate ? new Date(p.lastMatchDate).getTime() : Date.now();
       const isActive = (Date.now() - lastTime) < 30 * 24 * 60 * 60 * 1000;
       return leaderboardFilter === 'active' ? isActive : !isActive;
@@ -2257,6 +2263,22 @@ const Dashboard = ({ userId, onLogout }) => {
               }}
             >
               💤 INACTIVOS (ÚLT. MES)
+            </button>
+            <button 
+              onClick={() => setLeaderboardFilter('hospital')} 
+              style={{ 
+                background: leaderboardFilter === 'hospital' ? 'linear-gradient(135deg, #FF3B30 0%, #8b0000 100%)' : 'transparent', 
+                color: leaderboardFilter === 'hospital' ? 'white' : 'var(--off-white)',
+                border: 'none',
+                borderRadius: '25px',
+                padding: '0.6rem 1.5rem',
+                fontSize: '0.9rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s'
+              }}
+            >
+              🚑 HOSPITAL
             </button>
           </div>
         </div>
