@@ -1701,16 +1701,6 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                 />
               </div>
 
-              <button 
-                onClick={() => {
-                  setSelectedPlayer(myPlayerCard);
-                  setIsEditingSelf(true);
-                }} 
-                className="btn-primary" 
-                style={{ width: '100%', padding: '0.8rem', fontSize: '1rem', background: 'var(--electric-cyan)', borderColor: 'var(--electric-cyan)', color: 'black', fontWeight: 'bold' }}
-              >
-                ⚙️ MODIFICAR MIS SKILLS
-              </button>
 
               <div style={{ marginTop: '2rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '10px', textAlign: 'left', borderLeft: '4px solid var(--volt-lime)' }}>
                 <h4 style={{ color: 'var(--volt-lime)', margin: '0 0 0.5rem 0' }}>📈 EVOLUCIÓN AUTOMÁTICA (IA)</h4>
