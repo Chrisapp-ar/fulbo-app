@@ -63,6 +63,54 @@ const AvatarSelector = ({ onSelectAvatar, currentAvatar }) => {
     flex: 1
   };
 
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Redimensionar para no sobrecargar Supabase
+        const MAX_WIDTH = 250;
+        const MAX_HEIGHT = 250;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        onSelectAvatar(dataUrl);
+        setMode(null);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const fileInputRef = useRef(null);
+
+  const triggerFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   return (
     <div style={{ marginTop: '0.5rem', marginBottom: '1rem', background: 'rgba(0,0,0,0.4)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
@@ -75,9 +123,11 @@ const AvatarSelector = ({ onSelectAvatar, currentAvatar }) => {
       </div>
       
       {!mode && (
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button type="button" onClick={() => setMode('gallery')} style={btnStyle}>Elegir Ícono</button>
-          <button type="button" onClick={startCamera} style={{...btnStyle, borderColor: 'var(--volt-lime)', color: 'var(--volt-lime)'}}>Cámara Web 📷</button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => setMode('gallery')} style={btnStyle}>Ícono</button>
+          <button type="button" onClick={startCamera} style={{...btnStyle, borderColor: 'var(--volt-lime)', color: 'var(--volt-lime)'}}>Cámara 📷</button>
+          <button type="button" onClick={triggerFileUpload} style={{...btnStyle, borderColor: 'var(--electric-cyan)', color: 'var(--electric-cyan)'}}>Subir 🖼️</button>
+          <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
       )}
 
