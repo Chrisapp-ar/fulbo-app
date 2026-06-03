@@ -137,6 +137,7 @@ const Dashboard = ({ userId, onLogout }) => {
   // ==========================================
 
   useEffect(() => {
+    if (!initialLoadDone) return;
     localStorage.setItem('fulbo_roster', JSON.stringify(roster));
     if (isSupabaseConfigured && supabase) {
        supabase.auth.getUser().then(({ data: { user } }) => {
@@ -145,9 +146,10 @@ const Dashboard = ({ userId, onLogout }) => {
          console.error("Error updating roster on Supabase:", err);
        });
     }
-  }, [roster]);
+  }, [roster, initialLoadDone]);
 
   useEffect(() => {
+    if (!initialLoadDone) return;
     localStorage.setItem('fulbo_match_history', JSON.stringify(matchHistory));
     if (isSupabaseConfigured && supabase) {
        supabase.auth.getUser().then(({ data: { user } }) => {
@@ -156,7 +158,7 @@ const Dashboard = ({ userId, onLogout }) => {
          console.error("Error updating match history on Supabase:", err);
        });
     }
-  }, [matchHistory]);
+  }, [matchHistory, initialLoadDone]);
 
   // Cloud state loading is now merged sequentially inside the main initDashboard useEffect to avoid race conditions.
 
