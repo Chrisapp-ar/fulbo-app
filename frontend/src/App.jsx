@@ -59,7 +59,7 @@ const App = () => {
     if (isAuthenticated) {
       const isHost = session?.user?.id === leagueId;
       if (isHost) {
-        return <Dashboard userId={session?.user?.id} onLogout={handleLogout} />;
+        return <Dashboard userId={session?.user?.id} userEmail={session?.user?.email} onLogout={handleLogout} />;
       } else {
         return <CompanionApp leagueId={leagueId} currentUser={session?.user} onLogout={handleLogout} />;
       }
@@ -76,6 +76,7 @@ const App = () => {
         ) : (
           <Dashboard 
             userId={session?.user?.id}
+            userEmail={session?.user?.email}
             onLogout={handleLogout}
           />
         )

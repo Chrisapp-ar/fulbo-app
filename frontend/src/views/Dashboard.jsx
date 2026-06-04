@@ -45,7 +45,7 @@ const getPlayerBadges = (p) => {
   return list;
 };
 
-const Dashboard = ({ userId, onLogout }) => {
+const Dashboard = ({ userId, userEmail, onLogout }) => {
   // ==========================================
   // ESTADOS DE REACT (Todos agrupados al inicio para evitar Temporal Dead Zone y ReferenceErrors)
   // ==========================================
@@ -1758,6 +1758,7 @@ const Dashboard = ({ userId, onLogout }) => {
   // --- RENDERS ---
 
   const isSubscriptionExpired = () => {
+    if (userEmail === 'chris.r.lemos@gmail.com') return false;
     if (subscriptionChecking) return false;
     if (subscriptionStatus !== 'active') return true;
     if (subscriptionEndsAt && new Date(subscriptionEndsAt) < new Date()) return true;
@@ -2438,6 +2439,7 @@ const Dashboard = ({ userId, onLogout }) => {
   const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
 
   const isPlanExpired = () => {
+    if (userEmail === 'chris.r.lemos@gmail.com') return false;
     if (subscriptionChecking) return false;
     if (subscriptionStatus !== 'active') return true;
     if (subscriptionEndsAt && new Date(subscriptionEndsAt) < new Date()) return true;
@@ -2688,6 +2690,11 @@ const Dashboard = ({ userId, onLogout }) => {
       )}
       <header style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
         <div className="responsive-header-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+          {userEmail === 'chris.r.lemos@gmail.com' && (
+            <div style={{ background: 'var(--ultimate-gold)', color: 'black', padding: '0.4rem 1rem', borderRadius: '20px', fontWeight: '900', fontSize: '0.8rem', letterSpacing: '1px', textTransform: 'uppercase', boxShadow: '0 0 15px rgba(255,215,0,0.5)' }}>
+              ⭐ ADMIN GENERAL
+            </div>
+          )}
           <div className="nav-tabs-container" style={{ margin: 0, flexWrap: 'wrap', alignItems: 'center' }}>
 
             {/* Notification Bell */}
