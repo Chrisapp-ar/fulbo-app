@@ -632,7 +632,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   };
 
 
-  if (!leagueExists) {
+  if (leagueId && !leagueExists) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>No se pudo encontrar la liga. Verifica que el enlace sea correcto.</div>;
   }
 
