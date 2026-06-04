@@ -46,11 +46,14 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [activeEvent, setActiveEvent] = useState(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [regName, setRegName] = useState(currentUser?.user_metadata?.full_name || localStorage.getItem('guestName') || '');
-  const [regRole, setRegRole] = useState('Mediocampo');
-  const [regStats, setRegStats] = useState({ pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
+  const [regRole, setRegRole] = useState(localStorage.getItem('guestRole') || 'Mediocampo');
+  const [regStats, setRegStats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('guestStats')) || { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 }; }
+    catch(e) { return { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 }; }
+  });
   const [regSuccess, setRegSuccess] = useState(false);
   const [leagueExists, setLeagueExists] = useState(false);
-  const [regAvatar, setRegAvatar] = useState('👤');
+  const [regAvatar, setRegAvatar] = useState(localStorage.getItem('guestAvatar') || '⚽');
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState(false);
   const [eventRegistrations, setEventRegistrations] = useState([]);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
@@ -72,7 +75,22 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [revealedCount, setRevealedCount] = useState(0);
 
   // Derived computed values
-  const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id));
+  const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id)) 
+    || (() => {
+      const gName = localStorage.getItem('guestName');
+      if (!gName) return null;
+      try {
+        const gStats = JSON.parse(localStorage.getItem('guestStats')) || { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 };
+        return {
+          id: 'guest_local',
+          name: gName,
+          role: localStorage.getItem('guestRole') || 'Mediocampo',
+          stats: gStats,
+          avatar: localStorage.getItem('guestAvatar') || '⚽',
+          glicko: { rating: 1500 }
+        };
+      } catch(e) { return null; }
+    })();
 
   const uniqueRegistrationsMap = {};
   eventRegistrations.forEach(r => {
@@ -195,14 +213,19 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         stats: regStats,
         avatar: regAvatar
       });
-      if (error) {
-        alert("Error al inscribirse: " + error.message);
-      } else {
-        setRegSuccess(true);
-        setIsRegistering(false);
+        if (error) {
+          alert("Error al inscribirse: " + error.message);
+        } else {
+          // Save locally so the guest can see their card in 'Mi Ficha'
+          localStorage.setItem('guestName', regName.trim());
+          localStorage.setItem('guestRole', regRole);
+          localStorage.setItem('guestStats', JSON.stringify(regStats));
+          localStorage.setItem('guestAvatar', regAvatar);
+          setRegSuccess(true);
+          setIsRegistering(false);
+        }
       }
-    }
-  };
+    };
 
   const handlePayMP = async (playerId, amount) => {
     try {
@@ -1716,10 +1739,57 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
               </div>
             </div>
           ) : (
-            <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
-              <span style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}>🛡️</span>
-              <h3>No estás registrado en la liga activa</h3>
-              <p>Inscríbete a un evento para ver tu ficha táctica.</p>
+            <div className="glass-panel" style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
+              <h3 style={{ color: 'var(--electric-cyan)', marginBottom: '1rem' }}>CREAR MI FICHA DE JUGADOR</h3>
+              <p style={{ fontSize: '0.85rem', marginBottom: '2rem' }}>Configura tu tarjeta táctica. Esta configuración se usará cuando te inscribas a los partidos.</p>
+              
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!regName.trim()) return;
+                localStorage.setItem('guestName', regName.trim());
+                localStorage.setItem('guestRole', regRole);
+                localStorage.setItem('guestStats', JSON.stringify(regStats));
+                localStorage.setItem('guestAvatar', regAvatar);
+                window.location.reload(); 
+              }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
+                 <input type="text" placeholder="Tu Nombre (Ej: Messi)" value={regName} onChange={(e) => setRegName(e.target.value)} required className="input-field" />
+                 
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--off-white)', fontWeight: 'bold' }}>POSICIÓN EN LA CANCHA</span>
+                    <div className="segmented-control">
+                      {[
+                        { val: 'Arquero', label: 'GK' },
+                        { val: 'Defensor', label: 'DEF' },
+                        { val: 'Mediocampo', label: 'MED' },
+                        { val: 'Delantero', label: 'DEL' }
+                      ].map(r => (
+                        <button type="button" key={r.val} onClick={() => setRegRole(r.val)} className={`segment-btn ${regRole === r.val ? 'active' : ''}`}>
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <AvatarSelector onSelectAvatar={setRegAvatar} currentAvatar={regAvatar} />
+                  
+                  <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <h5 style={{ color: 'var(--volt-lime)', margin: '0 0 1rem 0' }}>REPARTE TUS PUNTOS (MAX 500)</h5>
+                    {Object.keys(regStats).map(s => (
+                      <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.8rem' }}>
+                        <span style={{ width: '40px', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--electric-cyan)', fontSize: '0.8rem' }}>{s}</span>
+                        <input type="range" min="1" max="99" value={regStats[s]} onChange={(e) => setRegStats({...regStats, [s]: parseInt(e.target.value)})} style={{ flex: 1, accentColor: 'var(--volt-lime)' }} />
+                        <span style={{ width: '30px', textAlign: 'right', fontWeight: 'bold' }}>{regStats[s]}</span>
+                      </div>
+                    ))}
+                    <div style={{ textAlign: 'right', fontSize: '0.8rem', color: Object.values(regStats).reduce((a,b)=>a+b,0) > 500 ? 'var(--crimson-red)' : 'var(--off-white)' }}>
+                      Total: {Object.values(regStats).reduce((a,b)=>a+b,0)} / 500
+                    </div>
+                  </div>
+
+                  <button type="submit" disabled={Object.values(regStats).reduce((a,b)=>a+b,0) > 500} className="btn-primary" style={{ marginTop: '1rem' }}>
+                    GUARDAR FICHA
+                  </button>
+              </form>
             </div>
           )}
         </div>
