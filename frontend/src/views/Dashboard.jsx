@@ -295,11 +295,21 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
     }
   };
 
-  const shareVaquitaWA = () => {
-    const totalPlayers = teamA.length + teamB.length;
-    const quota = totalPlayers > 0 ? (pitchCost / totalPlayers).toFixed(2) : '0.00';
-    const text = `💸 *LA VAQUITA - FULBO* 💸\n\nCosto de la cancha: *$${pitchCost}*\nNos toca pagar *$${quota}* a cada uno.\n\n👉 *PAGA FÁCIL DESDE TU CELULAR:* \nEntra a tu perfil en el link de la liga y pulsa el botón *"Pagar con Mercado Pago"*\n🔗 ${window.location.origin}/?league=${hostId}\n\n¡La acreditación y habilitación es automática en tiempo real! ⚡`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  const broadcastPaymentNotification = () => {
+    setActiveEvent(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, paymentBroadcasted: true, paymentBroadcastTime: Date.now() };
+      
+      // Sincronizar Inmediatamente con Supabase
+      if (isSupabaseConfigured && supabase && hostId) {
+        supabase.from('league_state').update({ active_event: updated }).eq('host_id', hostId).then();
+      }
+      
+      setToastMessage("Notificación de pago enviada a todos los jugadores");
+      setTimeout(() => setToastMessage(''), 3000);
+      
+      return updated;
+    });
   };
 
   const renderMpConfigModal = () => {
@@ -3255,15 +3265,22 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
                       </p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                         {[...teamA, ...teamB].map(p => (
-                          <div key={p.id} onClick={() => setPaymentsMap(prev => ({ ...prev, [p.id]: !prev[p.id] }))} style={{ cursor: 'pointer', background: paymentsMap[p.id] ? 'rgba(37,211,102,0.2)' : 'rgba(255,0,0,0.2)', border: paymentsMap[p.id] ? '1px solid #25D366' : '1px solid var(--crimson-red)', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            {paymentsMap[p.id] ? '✅' : '❌'} {p.name}
+                          <div key={p.id} onClick={() => setPaymentsMap(prev => {
+                            const current = prev[p.id];
+                            let nextStatus = false;
+                            if (!current) nextStatus = 'cash';
+                            else if (current === 'cash') nextStatus = 'mp';
+                            else nextStatus = false;
+                            return { ...prev, [p.id]: nextStatus };
+                          })} style={{ cursor: 'pointer', background: paymentsMap[p.id] ? 'rgba(37,211,102,0.2)' : 'rgba(255,0,0,0.2)', border: paymentsMap[p.id] ? '1px solid #25D366' : '1px solid var(--crimson-red)', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {paymentsMap[p.id] === 'mp' ? '💳 MP' : paymentsMap[p.id] === 'cash' || paymentsMap[p.id] === true ? '💵 EF' : '❌'} {p.name}
                           </div>
                         ))}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <button onClick={shareVaquitaWA} className="btn-primary" style={{ background: '#009EE3', borderColor: '#009EE3', fontSize: '0.9rem', padding: '0.8rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', fontWeight: 'bold' }}>
-                         🤝 Cobrar por MercadoPago
+                      <button onClick={broadcastPaymentNotification} className="btn-primary" style={{ background: '#009EE3', borderColor: '#009EE3', fontSize: '0.9rem', padding: '0.8rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', fontWeight: 'bold' }}>
+                         📣 NOTIFICAR A JUGADORES
                       </button>
                     </div>
                   </div>

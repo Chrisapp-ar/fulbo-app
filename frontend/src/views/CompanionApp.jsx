@@ -56,6 +56,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [leagueExists, setLeagueExists] = useState(false);
   const [regAvatar, setRegAvatar] = useState(localStorage.getItem('guestAvatar') || '⚽');
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [eventRegistrations, setEventRegistrations] = useState([]);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
@@ -148,6 +149,18 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       setIsRevealing(false);
     }
   }, [activeEvent?.status]);
+
+  useEffect(() => {
+    if (activeEvent?.paymentBroadcasted && activeEvent?.pitchCost > 0) {
+       const pid = myPlayerCard?.id || regName;
+       const hasPaid = activeEvent.paymentsMap && activeEvent.paymentsMap[pid];
+       if (!hasPaid) {
+          setShowPaymentModal(true);
+       } else {
+          setShowPaymentModal(false);
+       }
+    }
+  }, [activeEvent?.paymentBroadcasted, activeEvent?.paymentsMap, activeEvent?.pitchCost, myPlayerCard?.id, regName]);
 
   const handleRevealTeams = () => {
     const tA = activeEvent?.teamA || [];
@@ -254,7 +267,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     }
   };
 
-  const handleCashPayment = async (playerId) => {
+  const handleMarkPayment = async (playerId, method) => {
     try {
       if (isSupabaseConfigured && supabase) {
         const { data, error } = await supabase.from('league_state').select('active_event').eq('host_id', leagueId).single();
@@ -263,16 +276,20 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         if (data && data.active_event) {
           const currentEvent = data.active_event;
           if (!currentEvent.paymentsMap) currentEvent.paymentsMap = {};
-          currentEvent.paymentsMap[playerId] = 'cash';
+          currentEvent.paymentsMap[playerId] = method;
           
           const { error: updateError } = await supabase.from('league_state').update({ active_event: currentEvent }).eq('host_id', leagueId);
           if (updateError) throw updateError;
         }
       }
+      setShowPaymentModal(false);
+      if (method === 'mp') {
+        window.open('https://link.mercadopago.com.ar/fulboapp', '_blank');
+      }
       setPaymentSuccessMsg(true);
     } catch (e) {
       console.error(e);
-      alert("Error al registrar el pago en efectivo.");
+      alert(`Error al registrar el pago en ${method}.`);
     }
   };
 
@@ -1041,7 +1058,57 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
             </div>
           )}
         </div>
-      )}      {paymentSuccessMsg && (
+      )}
+
+      {showPaymentModal && activeEvent && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 20000, padding: '1rem',
+          animation: 'fadeIn 0.25s ease-out'
+        }}>
+          <div className="glass-panel" style={{
+            maxWidth: '400px', width: '100%',
+            padding: '2rem', border: '1px solid var(--electric-cyan)',
+            position: 'relative', textAlign: 'center'
+          }}>
+            <h2 className="glow-text-cyan" style={{ fontSize: '1.5rem', marginBottom: '1rem', fontWeight: '900' }}>
+              💸 LA VAQUITA
+            </h2>
+            <p style={{ color: 'var(--off-white)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              El organizador ha definido el costo de la cancha. Por favor, selecciona tu método de pago.
+            </p>
+            
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+              <div style={{ color: 'var(--off-white)', fontSize: '0.85rem' }}>Cuota a pagar:</div>
+              <div style={{ color: 'var(--volt-lime)', fontSize: '2rem', fontWeight: 'bold' }}>
+                ${(activeEvent.pitchCost / (activeEvent.format * 2)).toFixed(2)}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <button 
+                onClick={() => handleMarkPayment(myPlayerCard?.id || regName, 'mp')}
+                className="btn-primary" 
+                style={{ background: '#009EE3', borderColor: '#009EE3', color: 'white', padding: '1rem', fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                💳 Abonar por Mercado Pago
+              </button>
+              <button 
+                onClick={() => handleMarkPayment(myPlayerCard?.id || regName, 'cash')}
+                style={{ background: 'transparent', border: '1px solid var(--volt-lime)', color: 'var(--volt-lime)', padding: '1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}
+              >
+                💵 Pago en Efectivo (Al llegar)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentSuccessMsg && (
         <div style={{
           background: 'rgba(37,211,102,0.1)',
           border: '2px solid #25D366',
@@ -1231,28 +1298,14 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                               <button 
-                                onClick={() => window.open('https://link.mercadopago.com.ar/fulboapp', '_blank')}
+                                onClick={() => handleMarkPayment(myPlayerCard?.id || regName, 'mp')}
                                 className="btn-primary" 
                                 style={{ background: '#009EE3', borderColor: '#009EE3', color: 'white', padding: '0.8rem', fontSize: '0.9rem' }}
                               >
-                                🤝 Pagar con Mercado Pago
+                                💳 Pagar con Mercado Pago
                               </button>
                               <button 
-                                onClick={async () => {
-                                  try {
-                                    if (isSupabaseConfigured && supabase) {
-                                      const { data } = await supabase.from('league_state').select('active_event').eq('host_id', activeEvent.host_id).single();
-                                      if (data && data.active_event) {
-                                        const ev = data.active_event;
-                                        if (!ev.payments) ev.payments = {};
-                                        const pid = myPlayerCard?.id || regName;
-                                        ev.payments[pid] = true;
-                                        await supabase.from('league_state').update({ active_event: ev }).eq('host_id', activeEvent.host_id);
-                                        alert("¡Avisaste que pagas en efectivo!");
-                                      }
-                                    }
-                                  } catch(e) { console.error(e); }
-                                }}
+                                onClick={() => handleMarkPayment(myPlayerCard?.id || regName, 'cash')}
                                 style={{ background: 'transparent', border: '1px solid var(--volt-lime)', color: 'var(--volt-lime)', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
                               >
                                 💵 Pagar en Efectivo (Al llegar)
