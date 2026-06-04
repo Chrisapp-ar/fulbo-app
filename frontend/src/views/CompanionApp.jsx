@@ -497,10 +497,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   }, [leagueId]);
 
   const isSubscriptionExpired = () => {
-    if (subscriptionChecking) return false;
-    if (subscriptionStatus !== 'active') return true;
-    if (subscriptionEndsAt && new Date(subscriptionEndsAt) < new Date()) return true;
-    return false;
+    return false; // TEMPORARY BYPASS FOR LIFETIME SUBSCRIPTIONS AND TESTING
   };
 
   if (loading) {
