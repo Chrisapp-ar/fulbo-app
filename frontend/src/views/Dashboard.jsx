@@ -1134,10 +1134,7 @@ const Dashboard = ({ userId, onLogout }) => {
           return;
         }
 
-        // Force even pool
-        const evenRegs = finalRegs.slice(0, finalRegs.length - (finalRegs.length % 2));
-
-        pool = evenRegs.map(reg => {
+        pool = finalRegs.map(reg => {
           const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
           return {
             id: existingPlayer ? existingPlayer.id : (reg.player_id || reg.id),
@@ -1259,10 +1256,7 @@ const Dashboard = ({ userId, onLogout }) => {
           return;
         }
 
-        // Force even pool
-        const evenRegs = finalRegs.slice(0, finalRegs.length - (finalRegs.length % 2));
-
-        pool = evenRegs.map(reg => {
+        pool = finalRegs.map(reg => {
           const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
           return {
             id: existingPlayer ? existingPlayer.id : (reg.player_id || reg.id),
@@ -3038,25 +3032,13 @@ const Dashboard = ({ userId, onLogout }) => {
                             </div>
                           </div>
                           {activeEvent && activeEvent.status === 'preview' && (
-                            <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
-                              {!inA && !inB ? (
-                                <>
-                                  <button 
-                                    onClick={() => movePlayerToTeam(p, 'A')} 
-                                    style={{ background: 'var(--volt-lime)', border: 'none', color: 'black', borderRadius: '4px', padding: '0.15rem 0.35rem', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}
-                                    title="Sumar a Equipo A"
-                                  >
-                                    +A
-                                  </button>
-                                  <button 
-                                    onClick={() => movePlayerToTeam(p, 'B')} 
-                                    style={{ background: 'var(--electric-cyan)', border: 'none', color: 'black', borderRadius: '4px', padding: '0.15rem 0.35rem', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}
-                                    title="Sumar a Equipo B"
-                                  >
-                                    +B
-                                  </button>
-                                </>
-                              ) : (
+                              <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                                {inA && (
+                                  <span style={{ background: 'rgba(204,255,0,0.2)', color: 'var(--volt-lime)', border: '1px solid var(--volt-lime)', padding: '0.15rem 0.35rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>EN A</span>
+                                )}
+                                {inB && (
+                                  <span style={{ background: 'rgba(0,240,255,0.2)', color: 'var(--electric-cyan)', border: '1px solid var(--electric-cyan)', padding: '0.15rem 0.35rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>EN B</span>
+                                )}
                                 <button 
                                   onClick={() => {
                                     const newA = teamA.filter(x => x.id !== p.id && x.name.toLowerCase().trim() !== p.name.toLowerCase().trim());
@@ -3077,7 +3059,8 @@ const Dashboard = ({ userId, onLogout }) => {
                                 >
                                   Quitar
                                 </button>
-                              )}
+                              </div>
+                            )}
                             </div>
                           )}
                           <button 
