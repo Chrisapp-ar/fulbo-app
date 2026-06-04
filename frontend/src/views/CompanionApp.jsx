@@ -1027,9 +1027,10 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
               <div style={{ marginTop: '1rem' }}>
                 <button 
                   onClick={() => {
-                    setShowPackOpening(false);
-                    setIsDrafting(true);
-                    setRevealedCount(0);
+                      setShowPackOpening(false);
+                      setTeamsRevealed(true);
+                      setIsDrafting(true);
+                      setRevealedCount(0);
                   }} 
                   className="btn-primary" 
                   style={{ width: 'auto', padding: '1rem 2rem', fontSize: '1rem', boxShadow: '0 0 20px rgba(204,255,0,0.4)' }}
@@ -1410,7 +1411,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                       <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px' }}>
                         <h4 className="glow-text-volt" style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>EQUIPO A</h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          {activeEvent.teamA.slice(0, Math.ceil(revealedCount / 2)).map(p => (
+                          {activeEvent.teamA.slice(0, isDrafting ? Math.ceil(revealedCount / 2) : activeEvent.teamA.length).map(p => (
                             <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
                               <span>{p.avatar || '👤'}</span>
                               <span style={{ fontWeight: 'bold' }}>{p.name}</span>
@@ -1426,7 +1427,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                       <div style={{ background: 'rgba(0,240,255,0.02)', border: '1px solid rgba(0,240,255,0.1)', padding: '1rem', borderRadius: '8px' }}>
                         <h4 className="glow-text-cyan" style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>EQUIPO B</h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          {activeEvent.teamB.slice(0, Math.floor(revealedCount / 2)).map(p => (
+                          {activeEvent.teamB.slice(0, isDrafting ? Math.floor(revealedCount / 2) : activeEvent.teamB.length).map(p => (
                             <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
                               <span>{p.avatar || '👤'}</span>
                               <span style={{ fontWeight: 'bold' }}>{p.name}</span>
