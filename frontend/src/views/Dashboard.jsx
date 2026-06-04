@@ -3156,22 +3156,36 @@ const Dashboard = ({ userId, onLogout }) => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
-                    {teamA.slice(0, Math.ceil(revealedCount / 2)).map(p => (
-                      <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                        <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
-                          <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} isInjured={p.condition?.isResting} stamina={p.condition?.stamina ?? 100} />
-                        </div>
-                        {!isDrafting && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); movePlayerToTeam(p, 'B'); }}
-                            className="btn-primary"
-                            style={{ padding: '0.3rem 0.8rem', fontSize: '0.75rem', width: 'auto', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--volt-lime)', cursor: 'pointer' }}
-                          >
-                            Pasar a B ➔
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                    {Array.from({ length: activeEvent.format / 2 }).map((_, index) => {
+                      const p = teamA.slice(0, Math.ceil(revealedCount / 2))[index];
+                      if (p) {
+                        return (
+                          <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                            <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
+                              <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} isInjured={p.condition?.isResting} stamina={p.condition?.stamina ?? 100} />
+                            </div>
+                            {!isDrafting && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); movePlayerToTeam(p, 'B'); }}
+                                className="btn-primary"
+                                style={{ padding: '0.3rem 0.8rem', fontSize: '0.75rem', width: 'auto', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--volt-lime)', cursor: 'pointer' }}
+                              >
+                                Pasar a B ➡️
+                              </button>
+                            )}
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div key={`empty-a-${index}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', opacity: isDrafting ? 0 : 1, transition: 'opacity 0.3s' }}>
+                            <div style={{ width: '180px', height: '260px', background: 'rgba(255,255,255,0.02)', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem' }}>
+                               <span style={{ fontSize: '2.5rem', opacity: 0.2 }}>👤</span>
+                               <span style={{ color: 'var(--off-white)', fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '1px', opacity: 0.5 }}>VACANTE</span>
+                            </div>
+                          </div>
+                        );
+                      }
+                    })}
                   </div>
                 </div>
 
@@ -3188,22 +3202,36 @@ const Dashboard = ({ userId, onLogout }) => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
-                    {teamB.slice(0, Math.floor(revealedCount / 2)).map(p => (
-                      <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                        <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
-                          <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} isInjured={p.condition?.isResting} stamina={p.condition?.stamina ?? 100} />
-                        </div>
-                        {!isDrafting && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); movePlayerToTeam(p, 'A'); }}
-                            className="btn-primary"
-                            style={{ padding: '0.3rem 0.8rem', fontSize: '0.75rem', width: 'auto', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--electric-cyan)', cursor: 'pointer' }}
-                          >
-                            &larr; Pasar a A
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                    {Array.from({ length: activeEvent.format / 2 }).map((_, index) => {
+                      const p = teamB.slice(0, Math.floor(revealedCount / 2))[index];
+                      if (p) {
+                        return (
+                          <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                            <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
+                              <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} isInjured={p.condition?.isResting} stamina={p.condition?.stamina ?? 100} />
+                            </div>
+                            {!isDrafting && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); movePlayerToTeam(p, 'A'); }}
+                                className="btn-primary"
+                                style={{ padding: '0.3rem 0.8rem', fontSize: '0.75rem', width: 'auto', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--electric-cyan)', cursor: 'pointer' }}
+                              >
+                                ⬅️ Pasar a A
+                              </button>
+                            )}
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div key={`empty-b-${index}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', opacity: isDrafting ? 0 : 1, transition: 'opacity 0.3s' }}>
+                            <div style={{ width: '180px', height: '260px', background: 'rgba(255,255,255,0.02)', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem' }}>
+                               <span style={{ fontSize: '2.5rem', opacity: 0.2 }}>👤</span>
+                               <span style={{ color: 'var(--off-white)', fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '1px', opacity: 0.5 }}>VACANTE</span>
+                            </div>
+                          </div>
+                        );
+                      }
+                    })}
                   </div>
                 </div>
               </div>
