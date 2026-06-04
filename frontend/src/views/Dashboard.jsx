@@ -1125,7 +1125,7 @@ const Dashboard = ({ userId, onLogout }) => {
       if (useLobby) {
         // Limpiar duplicados
         const uniqueMap = {};
-        eventRegistrations.forEach(r => { if (r && r.name) { uniqueMap[r.name.toLowerCase().trim()] = r; } });
+        eventRegistrations.forEach(r => { if (r && r.name) { const key = r.id || r.name.toLowerCase().trim(); uniqueMap[key] = r; } });
         const finalRegs = Object.values(uniqueMap).slice(0, activeEvent?.format || 100);
 
         if (finalRegs.length < 8) {
@@ -1137,7 +1137,7 @@ const Dashboard = ({ userId, onLogout }) => {
         pool = finalRegs.map(reg => {
           const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
           return {
-            id: existingPlayer ? existingPlayer.id : (reg.player_id || reg.id),
+            id: existingPlayer ? existingPlayer.id : (reg.id || Math.random().toString(36).substr(2, 9)),
             player_id: reg.player_id || (existingPlayer ? existingPlayer.player_id : null),
             name: reg.name,
             role: reg.role,
@@ -1165,7 +1165,7 @@ const Dashboard = ({ userId, onLogout }) => {
       let sumA = 0;
       let sumB = 0;
       
-      const activePool = pool.filter(p => p && !p.financial?.isBanned);
+      const activePool = pool.filter(p => p);
       
       const grouped = {
         Arquero: [],
@@ -1247,7 +1247,7 @@ const Dashboard = ({ userId, onLogout }) => {
       if (useLobby) {
         // Limpiar duplicados por nombre
         const uniqueMap = {};
-        eventRegistrations.forEach(r => { if (r && r.name) { uniqueMap[r.name.toLowerCase().trim()] = r; } });
+        eventRegistrations.forEach(r => { if (r && r.name) { const key = r.id || r.name.toLowerCase().trim(); uniqueMap[key] = r; } });
         const finalRegs = Object.values(uniqueMap).slice(0, activeEvent?.format || 100);
 
         if (finalRegs.length < 8) {
@@ -1259,7 +1259,7 @@ const Dashboard = ({ userId, onLogout }) => {
         pool = finalRegs.map(reg => {
           const existingPlayer = roster.find(p => p && p.name && reg && reg.name && p.name.toLowerCase().trim() === reg.name.toLowerCase().trim());
           return {
-            id: existingPlayer ? existingPlayer.id : (reg.player_id || reg.id),
+            id: existingPlayer ? existingPlayer.id : (reg.id || Math.random().toString(36).substr(2, 9)),
             player_id: reg.player_id || (existingPlayer ? existingPlayer.player_id : null),
             name: reg.name,
             role: reg.role,
@@ -1288,7 +1288,7 @@ const Dashboard = ({ userId, onLogout }) => {
       let sumA = 0;
       let sumB = 0;
       
-      const activePool = pool.filter(p => p && !p.financial?.isBanned);
+      const activePool = pool.filter(p => p);
       
       const grouped = {
         Arquero: [],
@@ -1824,7 +1824,8 @@ const Dashboard = ({ userId, onLogout }) => {
     const uniqueRegistrationsMap = {};
     eventRegistrations.forEach(r => {
       if (r && r.name) {
-        uniqueRegistrationsMap[r.name.toLowerCase().trim()] = r;
+        const key = r.id || r.name.toLowerCase().trim();
+        uniqueRegistrationsMap[key] = r;
       }
     });
     const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
