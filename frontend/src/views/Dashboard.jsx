@@ -3060,8 +3060,6 @@ const Dashboard = ({ userId, onLogout }) => {
                                   Quitar
                                 </button>
                               </div>
-                            )}
-                            </div>
                           )}
                           <button 
                             onClick={() => healPlayer(p.id)} 
@@ -3140,7 +3138,7 @@ const Dashboard = ({ userId, onLogout }) => {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
                     {Array.from({ length: activeEvent.format / 2 }).map((_, index) => {
-                      const p = teamA.slice(0, Math.ceil(revealedCount / 2))[index];
+                      const p = isDrafting ? teamA.slice(0, Math.ceil(revealedCount / 2))[index] : teamA[index];
                       if (p) {
                         return (
                           <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
@@ -3186,7 +3184,7 @@ const Dashboard = ({ userId, onLogout }) => {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
                     {Array.from({ length: activeEvent.format / 2 }).map((_, index) => {
-                      const p = teamB.slice(0, Math.floor(revealedCount / 2))[index];
+                      const p = isDrafting ? teamB.slice(0, Math.floor(revealedCount / 2))[index] : teamB[index];
                       if (p) {
                         return (
                           <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
