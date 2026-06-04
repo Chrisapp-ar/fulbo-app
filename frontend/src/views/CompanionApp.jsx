@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import PlayerCard from '../components/PlayerCard';
 import EloChart from '../components/EloChart';
+import AvatarSelector from '../components/AvatarSelector';
 
 const getPlayerBadges = (p) => {
   const list = [];
@@ -1312,34 +1313,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                                   </div>
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                  <label style={{ color: 'var(--off-white)', fontSize: '0.75rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>SELECCIONA TU AVATAR EMOJI</label>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.6rem', borderRadius: '6px' }}>
-                                    {['👤', '⚽', '🏃‍♂️', '🔥', '🌟', '🧤', '🛡️', '🎯', '⚡', '🏆', '👽', '🦁', '💀', '🤖'].map(emoji => (
-                                      <button 
-                                        key={emoji}
-                                        type="button"
-                                        onClick={() => setRegAvatar(emoji)}
-                                        style={{
-                                          background: regAvatar === emoji ? 'var(--volt-lime)' : 'rgba(255,255,255,0.05)',
-                                          border: 'none',
-                                          borderRadius: '4px',
-                                          fontSize: '1.2rem',
-                                          width: '35px',
-                                          height: '35px',
-                                          cursor: 'pointer',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          transition: 'transform 0.1s ease',
-                                          transform: regAvatar === emoji ? 'scale(1.15)' : 'none'
-                                        }}
-                                      >
-                                        {emoji}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
+                                <AvatarSelector onSelectAvatar={setRegAvatar} currentAvatar={regAvatar} />
                                 
                                 {(() => {
                                   const isExistingPlayer = regName.trim().length > 0 && roster.some(p => p.name && p.name.toLowerCase().trim() === regName.toLowerCase().trim());
