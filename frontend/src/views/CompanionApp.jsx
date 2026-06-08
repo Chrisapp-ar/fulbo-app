@@ -623,10 +623,18 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>No se pudo encontrar la liga. Verifica que el enlace sea correcto.</div>;
   }
 
-  if (selectedPlayer) {
-    const isMyCard = selectedPlayer.id === currentUser?.id || selectedPlayer.player_id === currentUser?.id;
-    return (
-      <div style={{ 
+    const isEventExpired = (event) => {
+    if (!event) return true;
+    const eventDateObj = new Date(event.date + 'T23:59:59');
+    const dayAfterEvent = new Date(eventDateObj.getTime() + 24 * 60 * 60 * 1000);
+    return new Date() > dayAfterEvent;
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '1rem 0.5rem 80px 0.5rem', fontFamily: 'var(--font-secondary)' }}>
+      <div style={{ display: 'none' }} />
+
+      {selectedPlayer ? (<div style={{ 
         minHeight: '100vh', 
         background: 'var(--pitch-black)', 
         display: 'flex', 
@@ -916,21 +924,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           )}
         </div>
       </div>
-    );
-  }
-
-  const isEventExpired = (event) => {
-    if (!event) return true;
-    const eventDateObj = new Date(event.date + 'T23:59:59');
-    const dayAfterEvent = new Date(eventDateObj.getTime() + 24 * 60 * 60 * 1000);
-    return new Date() > dayAfterEvent;
-  };
-
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '1rem 0.5rem 80px 0.5rem', fontFamily: 'var(--font-secondary)' }}>
-      <div style={{ display: 'none' }} />
-
-      {showPackOpening && (
+    )) : (<>
+{showPackOpening && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -1845,7 +1840,9 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       )}
 
 
-    </div>
+    
+</>)}
+</div>
   );
 };
 
