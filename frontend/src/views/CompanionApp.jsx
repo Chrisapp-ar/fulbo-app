@@ -1148,8 +1148,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         padding: '0.6rem 0.2rem', 
         paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom))',
         zIndex: 999999,
-        WebkitTransform: 'translateZ(0)',
-        transform: 'translateZ(0)',
+        
+        
         overflowX: 'auto'
       }}>
         <button onClick={() => setActiveTab('active_matches')} style={{ background: 'transparent', color: activeTab === 'active_matches' ? 'var(--volt-lime)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
