@@ -19,6 +19,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
+  overflow-x: hidden;
   background-color: var(--pitch-black);
   color: var(--pure-white);
   font-family: var(--font-secondary);

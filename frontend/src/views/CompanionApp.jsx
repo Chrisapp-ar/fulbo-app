@@ -631,7 +631,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   };
 
   return (
-    <div style={{ width: '100%', minHeight: '100vh', background: 'var(--pitch-black)', padding: '2rem 1.5rem 80px 1.5rem', fontFamily: 'var(--font-secondary)', boxSizing: 'border-box' }}>
+    <div className="page-container" style={{ minHeight: '100vh', background: 'var(--pitch-black)', fontFamily: 'var(--font-secondary)' }}>
       <div style={{ display: 'none' }} />
 
       {selectedPlayer ? (<div style={{ 
@@ -1191,7 +1191,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           ) : activeEvent && !isEventExpired(activeEvent) ? (
             <div className="glass-panel" style={{ padding: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
               {/* Header Info */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem', marginBottom: '1.2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem', marginBottom: '1.2rem' }}>
                 <div>
                   <span style={{
                     background: activeEvent.status === 'lobby' ? 'var(--volt-lime)' : (activeEvent.status === 'preview' ? 'var(--ultimate-gold)' : 'var(--crimson-red)'),
