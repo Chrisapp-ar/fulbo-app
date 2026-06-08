@@ -1307,7 +1307,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                       ) : (
                         <div>
                           {!isRegistering ? (
-                            <button onClick={() => setIsRegistering(true)} className="btn-primary" style={{ padding: '0.8rem' }}>
+                            <button onClick={(e) => { if (localStorage.getItem('guestName')) { handleRegSubmit(e); } else { setIsRegistering(true); } }} className="btn-primary" style={{ padding: '0.8rem' }}>
                               INSCRIBIRSE AHORA
                             </button>
                           ) : (
