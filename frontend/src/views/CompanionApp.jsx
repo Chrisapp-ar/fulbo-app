@@ -1181,7 +1181,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       </nav>
 
       {activeTab === 'active_matches' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%', maxWidth: '600px', margin: '0 auto', boxSizing: 'border-box' }}>
           {!leagueId ? (
             <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
               <span style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}>🔗</span>
@@ -1478,7 +1478,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       )}
 
       {activeTab === 'leaderboard' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '600px', margin: '0 auto', boxSizing: 'border-box' }}>
           {!leagueId ? (
             <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
               <h3>Leaderboard No Disponible</h3>
@@ -1700,7 +1700,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       )}
 
       {activeTab === 'mificha' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%', maxWidth: '600px', margin: '0 auto', boxSizing: 'border-box' }}>
           {!leagueId ? (
             <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
               <h3>Ficha Táctica No Disponible</h3>
@@ -1795,7 +1795,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       )}
 
       {activeTab === 'history' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '600px', margin: '0 auto', boxSizing: 'border-box' }}>
           {matchHistory.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📚</div>
