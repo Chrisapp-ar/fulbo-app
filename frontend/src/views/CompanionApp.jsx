@@ -631,7 +631,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--pitch-black)', padding: '1rem 0.5rem 80px 0.5rem', fontFamily: 'var(--font-secondary)' }}>
+    <div style={{ width: '100%', minHeight: '100vh', background: 'var(--pitch-black)', padding: '2rem 1.5rem 80px 1.5rem', fontFamily: 'var(--font-secondary)', boxSizing: 'border-box' }}>
       <div style={{ display: 'none' }} />
 
       {selectedPlayer ? (<div style={{ 
