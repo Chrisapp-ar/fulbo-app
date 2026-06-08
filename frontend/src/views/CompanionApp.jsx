@@ -73,25 +73,29 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [showPackOpening, setShowPackOpening] = useState(false);
   const [walkoutRevealStage, setWalkoutRevealStage] = useState(0);
   const [walkoutPlayers, setWalkoutPlayers] = useState([]);
-  const [isDrafting, setIsDrafting] = useState(false);
-  const [revealedCount, setRevealedCount] = useState(0);
 
   // Derived computed values
   const myPlayerCard = roster.find(p => p && (p.id === currentUser?.id || p.player_id === currentUser?.id)) 
     || (() => {
       const gName = localStorage.getItem('guestName');
-      if (!gName) return null;
-      try {
-        const gStats = JSON.parse(localStorage.getItem('guestStats')) || { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 };
+      if (gName) {
+         const found = roster.find(p => p && p.name && p.name.toLowerCase().trim() === gName.toLowerCase().trim());
+         if (found) return found;
+      }
+      return null;
+    })()
+    || (() => {
+      const gName = localStorage.getItem('guestName');
+      const reg = eventRegistrations.find(r => r && (r.player_id === currentUser?.id || (r.name?.toLowerCase().trim() === (gName || '').toLowerCase().trim())));
+      if (reg) {
         return {
-          id: 'guest_local',
-          name: gName,
-          role: localStorage.getItem('guestRole') || 'Mediocampo',
-          stats: gStats,
-          avatar: localStorage.getItem('guestAvatar') || '⚽',
-          glicko: { rating: 1500 }
+          ...reg,
+          glicko: { rating: 1500, rd: 350, vol: 0.06 },
+          history: { pj: 0, pg: 0, pe: 0, pp: 0, goals: 0 },
+          condition: { stamina: 100 }
         };
-      } catch(e) { return null; }
+      }
+      return null;
     })();
 
   const uniqueRegistrationsMap = {};
@@ -173,20 +177,6 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     setWalkoutRevealStage(0);
   };
 
-  useEffect(() => {
-    if (isDrafting && activeEvent?.teamA && activeEvent?.teamB) {
-      const totalPlayers = activeEvent.teamA.length + activeEvent.teamB.length;
-      if (revealedCount < totalPlayers) {
-        const timer = setTimeout(() => {
-          setRevealedCount(prev => prev + 1);
-        }, 400);
-        return () => clearTimeout(timer);
-      } else {
-        setIsDrafting(false);
-      }
-    }
-  }, [isDrafting, revealedCount, activeEvent]);
-  
   const handleRegSubmit = async (e) => {
     e.preventDefault();
     if (!regName.trim()) return;
@@ -423,8 +413,6 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
 
           if (data && data.length > 0) {
             processLeagueData(data[0]);
-          } else {
-            processLeagueData(null);
           }
 
           // Obtener registros de eventos
@@ -435,7 +423,6 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           if (regsData) setEventRegistrations(regsData);
         } catch (err) {
           console.error("Exception fetching league state:", err);
-          processLeagueData(null);
           setSubscriptionChecking(false);
         }
         setLoading(false);
@@ -489,8 +476,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         supabase.removeChannel(channel);
         supabase.removeChannel(regsChannel);
       };
-    } else {
-      processLeagueData(null);
+    } else if (isInvalidId) {
+      setLeagueExists(false);
       setSubscriptionChecking(false);
       setLoading(false);
     }
@@ -902,7 +889,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                   </button>
                   
                   <button 
-                    onClick={() => handleCashPayment(currentUser?.id)}
+                    onClick={() => {}}
                     style={{ 
                       background: 'transparent',
                       border: '1px solid #00b347',
@@ -1023,7 +1010,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
               
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', padding: '0 10px' }}>
                 {walkoutPlayers.map((wp, i) => (
-                  <div key={i} className="card-reveal-anim" style={{ transform: 'scale(0.75)', margin: '-20px', filter: i < 2 ? 'drop-shadow(0 0 20px rgba(204,255,0,0.3))' : 'drop-shadow(0 0 20px rgba(0,240,255,0.3))' }}>
+                  <div key={i} className="card-reveal-anim" style={{ transform: 'scale(0.75)', margin: '-20px', filter: i < 2 ? 'drop-shadow(0 0 20px rgba(204,255,0,0.3))' : 'drop-shadow(0 0 255px rgba(0,240,255,0.3))' }}>
                     <PlayerCard 
                       name={wp.name}
                       position={wp.role.substring(0,3).toUpperCase()}
@@ -1043,8 +1030,6 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                   onClick={() => {
                       setShowPackOpening(false);
                       setTeamsRevealed(true);
-                      setIsDrafting(true);
-                      setRevealedCount(0);
                   }} 
                   className="btn-primary" 
                   style={{ width: 'auto', padding: '1rem 2rem', fontSize: '1rem', boxShadow: '0 0 20px rgba(204,255,0,0.4)' }}
@@ -1164,14 +1149,15 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         bottom: 0, 
         left: 0, 
         right: 0, 
-        background: 'rgba(10,10,15,0.95)', 
-        backdropFilter: 'blur(10px)', 
+        background: '#0A0A0C', 
         borderTop: '1px solid rgba(255,255,255,0.1)', 
         display: 'flex', 
         justifyContent: 'space-around', 
         padding: '0.6rem 0.2rem', 
         paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom))',
-        zIndex: 1000,
+        zIndex: 999999,
+        WebkitTransform: 'translateZ(0)',
+        transform: 'translateZ(0)',
         overflowX: 'auto'
       }}>
         <button onClick={() => setActiveTab('active_matches')} style={{ background: 'transparent', color: activeTab === 'active_matches' ? 'var(--volt-lime)' : 'var(--off-white)', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', minWidth: '50px' }}>
@@ -1451,17 +1437,12 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', animation: 'fadeIn 0.5s ease-out' }}>
-                      {isDrafting && (
-                        <h2 style={{ color: 'var(--crimson-red)', letterSpacing: '2px', fontSize: '1rem', animation: 'pulse 1s infinite', textAlign: 'center', margin: 0 }}>
-                          🔴 REVELANDO EQUIPOS...
-                        </h2>
-                      )}
                     {/* Team A */}
                     {activeEvent.teamA && (
                       <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px' }}>
                         <h4 className="glow-text-volt" style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>EQUIPO A</h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          {activeEvent.teamA.slice(0, isDrafting ? Math.ceil(revealedCount / 2) : activeEvent.teamA.length).map(p => (
+                          {activeEvent.teamA.map(p => (
                             <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
                               <span>{p.avatar || '👤'}</span>
                               <span style={{ fontWeight: 'bold' }}>{p.name}</span>
@@ -1477,7 +1458,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                       <div style={{ background: 'rgba(0,240,255,0.02)', border: '1px solid rgba(0,240,255,0.1)', padding: '1rem', borderRadius: '8px' }}>
                         <h4 className="glow-text-cyan" style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: 'bold', fontFamily: 'var(--font-primary)' }}>EQUIPO B</h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          {activeEvent.teamB.slice(0, isDrafting ? Math.floor(revealedCount / 2) : activeEvent.teamB.length).map(p => (
+                          {activeEvent.teamB.map(p => (
                             <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
                               <span>{p.avatar || '👤'}</span>
                               <span style={{ fontWeight: 'bold' }}>{p.name}</span>

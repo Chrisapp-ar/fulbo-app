@@ -40,7 +40,13 @@ const App = () => {
   }, []);
   
   const urlParams = new URLSearchParams(window.location.search);
-  const leagueId = urlParams.get('league');
+  let leagueId = urlParams.get('league');
+  
+  if (leagueId && leagueId !== 'null' && leagueId !== 'undefined') {
+    localStorage.setItem('fulbo_last_league', leagueId);
+  } else {
+    leagueId = localStorage.getItem('fulbo_last_league');
+  }
 
   const handleLogout = () => {
     if (isSupabaseConfigured && supabase) supabase.auth.signOut();
@@ -64,6 +70,9 @@ const App = () => {
         return <CompanionApp leagueId={leagueId} currentUser={session?.user} onLogout={handleLogout} />;
       }
     } else {
+      if (localStorage.getItem('userRole') === 'guest') {
+        return <CompanionApp leagueId={leagueId} currentUser={null} onLogout={handleLogout} />;
+      }
       return <Login isGuest={true} onLogin={() => setIsAuthenticated(true)} />;
     }
   }
