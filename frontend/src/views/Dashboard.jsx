@@ -321,8 +321,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
         background: 'rgba(0, 0, 0, 0.85)',
         backdropFilter: 'blur(10px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 10000, padding: '1rem',
-        animation: 'fadeIn 0.25s ease-out'
+        zIndex: 10000, padding: '1rem'
       }}>
         <div className="glass-panel" style={{
           maxWidth: '500px', width: '100%',
@@ -416,8 +415,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 9999,
-        padding: '1rem',
-        animation: 'fadeIn 0.25s ease-out'
+        padding: '1rem'
       }}>
         <div className="glass-panel responsive-flex" style={{
           maxWidth: '900px',
@@ -1801,7 +1799,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
 
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--pitch-black)', padding: '1rem' }}>
-        <div className="glass-panel" style={{ maxWidth: '600px', width: '100%', textAlign: 'center', padding: '3.5rem 2rem', borderTop: '4px solid var(--crimson-red)', animation: 'fadeIn 0.5s ease-out', boxShadow: '0 0 30px rgba(255,0,85,0.2)' }}>
+        <div className="glass-panel" style={{ maxWidth: '600px', width: '100%', textAlign: 'center', padding: '3.5rem 2rem', borderTop: '4px solid var(--crimson-red)', boxShadow: '0 0 30px rgba(255,0,85,0.2)' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚠️</div>
           <h2 className="glow-text-volt" style={{ color: 'var(--crimson-red)', textShadow: '0 0 15px rgba(255,0,85,0.4)', fontSize: '2.2rem', marginBottom: '1.5rem' }}>SERVICIO SUSPENDIDO</h2>
           
@@ -1842,7 +1840,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
     const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, activeEvent?.format || 100);
 
     return (
-      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
+      <div className="page-container" style={{ maxWidth: '1000px' }}>
         <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0 }}>PARTIDOS CREADOS</h1>
           <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>Convocatorias activas y partidos en curso</p>
@@ -2047,7 +2045,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
 
   if (viewMode === 'history') {
     return (
-      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
+      <div className="page-container" style={{ maxWidth: '1000px' }}>
         <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0 }}>HISTÓRICO</h1>
           <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>Registro de todos los partidos disputados</p>
@@ -2114,7 +2112,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
     const topPlayers = [...playersToRank].sort((a,b) => calcHybridScore(b) - calcHybridScore(a)).slice(0, 5);
 
     return (
-      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
+      <div className="page-container" style={{ maxWidth: '1000px' }}>
         <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0 }}>🏆 DREAM TEAM</h1>
           <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>LOS 5 MEJORES JUGADORES DEL MES</p>
@@ -2149,7 +2147,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
     const injuredPlayers = roster.filter(p => p.condition?.isResting);
 
     return (
-      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
+      <div className="page-container" style={{ maxWidth: '1000px' }}>
         <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0, textShadow: '0 0 20px rgba(255,59,48,0.5)', color: '#FF3B30' }}>🏥 HOSPITAL</h1>
           <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>Jugadores en proceso de recuperación médica</p>
@@ -2218,7 +2216,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
     });
 
     return (
-      <div className="page-container" style={{ maxWidth: '1000px', animation: 'fadeIn 0.5s' }}>
+      <div className="page-container" style={{ maxWidth: '1000px' }}>
         <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 className="glow-text-volt" style={{ fontSize: '3.5rem', margin: 0 }}>LEADERBOARD MMR</h1>
           <p style={{ color: 'var(--off-white)', letterSpacing: '3px' }}>Rango Competitivo Oficial (Glicko-2)</p>
@@ -2357,7 +2355,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
 
   if (viewMode === 'match') {
     return (
-      <div className="page-container" style={{ animation: 'fadeIn 0.5s' }}>
+      <div className="page-container" style={{ }}>
         <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ display: 'inline-block', background: 'var(--crimson-red)', color: 'white', padding: '0.3rem 1rem', borderRadius: '20px', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>
             ● LIVE MATCH
@@ -2478,7 +2476,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
   };
 
   return (
-    <div className="page-container" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+    <div className="page-container" style={{ }}>
       {isPlanExpired() && (
         <div style={{
           position: 'fixed',
@@ -2755,7 +2753,6 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
                     padding: '1rem',
                     border: '1px solid rgba(255,255,255,0.1)',
                     boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                    animation: 'fadeIn 0.2s ease-out',
                     maxHeight: '300px',
                     overflowY: 'auto'
                   }}>
@@ -3160,7 +3157,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
                       if (p) {
                         return (
                           <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                            <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
+                            <div onClick={() => setSelectedPlayerDetails(p)} style={{ cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
                               <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} isInjured={p.condition?.isResting} stamina={p.condition?.stamina ?? 100} />
                             </div>
                             {!isDrafting && (
@@ -3206,7 +3203,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
                       if (p) {
                         return (
                           <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                            <div onClick={() => setSelectedPlayerDetails(p)} style={{ animation: 'fadeIn 0.4s ease-out', cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
+                            <div onClick={() => setSelectedPlayerDetails(p)} style={{ cursor: 'pointer' }} title="Ver Ficha y Gráfico Elo">
                               <PlayerCard name={p.name} position={p.role.substring(0,3).toUpperCase()} stats={p.stats} avatar={p.avatar} ovr={calcOvr(p)} badges={getPlayerBadges(p)} isInjured={p.condition?.isResting} stamina={p.condition?.stamina ?? 100} />
                             </div>
                             {!isDrafting && (
@@ -3326,8 +3323,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
               borderRadius: '8px',
               zIndex: 11000,
               fontFamily: 'var(--font-primary)',
-              fontWeight: 'bold',
-              animation: 'fadeIn 0.3s ease-out'
+              fontWeight: 'bold'
             }}>
               {toastMessage}
             </div>

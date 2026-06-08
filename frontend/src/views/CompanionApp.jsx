@@ -633,8 +633,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
         flexDirection: 'column', 
         alignItems: 'center', 
         padding: '2rem 1rem', 
-        overflowY: 'auto', 
-        animation: 'fadeIn 0.3s' 
+        overflowY: 'auto' 
       }}>
         <button 
           onClick={() => {
@@ -1049,8 +1048,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           background: 'rgba(0, 0, 0, 0.85)',
           backdropFilter: 'blur(10px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 20000, padding: '1rem',
-          animation: 'fadeIn 0.25s ease-out'
+          zIndex: 20000, padding: '1rem'
         }}>
           <div className="glass-panel" style={{
             maxWidth: '400px', width: '100%',
@@ -1098,8 +1096,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           padding: '1.5rem',
           borderRadius: '12px',
           marginBottom: '2rem',
-          textAlign: 'center',
-          animation: 'fadeIn 0.5s ease-out'
+          textAlign: 'center'
         }}>
           <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>¡PAGO APROBADO! 🎉</h3>
           <p style={{ margin: 0, fontSize: '0.9rem' }}>Tu pago ha sido registrado con éxito. El estado de tu deuda se actualizará en unos instantes.</p>
@@ -1189,7 +1186,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       </nav>
 
       {activeTab === 'active_matches' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto' }}>
           {!leagueId ? (
             <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
               <span style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}>🔗</span>
@@ -1269,7 +1266,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                         <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.8 }}>Espera a que el organizador arme los equipos.</span>
                       </div>
                       {activeEvent.pitchCost > 0 && (
-                        <div style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid var(--electric-cyan)', padding: '1.2rem', borderRadius: '8px', animation: 'fadeIn 0.3s' }}>
+                        <div style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid var(--electric-cyan)', padding: '1.2rem', borderRadius: '8px' }}>
                           <h4 style={{ color: 'var(--ultimate-gold)', margin: '0 0 0.8rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>💰 LA VAQUITA</h4>
                           <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', marginBottom: '1rem' }}>
                             Cuota a pagar: <strong className="glow-text-volt" style={{ color: 'var(--volt-lime)', fontSize: '1.1rem' }}>${(activeEvent.pitchCost / (activeEvent.format * 2)).toFixed(2)}</strong>
@@ -1311,7 +1308,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                               INSCRIBIRSE AHORA
                             </button>
                           ) : (
-                            <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '1.2rem', borderRadius: '8px', animation: 'fadeIn 0.2s' }}>
+                            <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '1.2rem', borderRadius: '8px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                 <h4 style={{ color: 'var(--electric-cyan)', margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>FICHA TÉCNICA</h4>
                                 <button onClick={() => setIsRegistering(false)} style={{ background: 'none', border: 'none', color: 'var(--off-white)', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
@@ -1423,7 +1420,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                           <p style={{ color: 'var(--off-white)', fontSize: '0.85rem', margin: 0 }}>Barajando posiciones y equilibrando MMR</p>
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem', animation: 'fadeIn 0.4s' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem' }}>
                           <span style={{ fontSize: '3.5rem', filter: 'grayscale(1)', opacity: 0.6 }}>🕵️‍♂️</span>
                           <div>
                             <h3 style={{ color: 'white', margin: '0 0 0.5rem 0', fontSize: '1.4rem' }}>¡Los equipos están listos!</h3>
@@ -1436,7 +1433,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                       )}
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', animation: 'fadeIn 0.5s ease-out' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                     {/* Team A */}
                     {activeEvent.teamA && (
                       <div style={{ background: 'rgba(204,255,0,0.02)', border: '1px solid rgba(204,255,0,0.1)', padding: '1rem', borderRadius: '8px' }}>
@@ -1486,7 +1483,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       )}
 
       {activeTab === 'leaderboard' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '600px', margin: '0 auto' }}>
           {!leagueId ? (
             <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
               <h3>Leaderboard No Disponible</h3>
@@ -1708,7 +1705,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
       )}
 
       {activeTab === 'mificha' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '600px', margin: '0 auto' }}>
           {!leagueId ? (
             <div className="glass-panel" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--off-white)' }}>
               <h3>Ficha Táctica No Disponible</h3>
