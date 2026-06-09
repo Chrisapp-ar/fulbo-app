@@ -634,6 +634,24 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     return new Date() > dayAfterEvent;
   };
 
+  const myMatches = matchHistory.filter(match => {
+    if (!regName) return false;
+    const inA = match.teamA?.some(m => m.name && m.name.toLowerCase().trim() === regName.toLowerCase().trim());
+    const inB = match.teamB?.some(m => m.name && m.name.toLowerCase().trim() === regName.toLowerCase().trim());
+    return inA || inB;
+  });
+
+  const connectedPlayers = new Set();
+  if (regName) {
+    connectedPlayers.add(regName.toLowerCase().trim());
+    myMatches.forEach(match => {
+      (match.teamA || []).forEach(m => { if (m.name) connectedPlayers.add(m.name.toLowerCase().trim()); });
+      (match.teamB || []).forEach(m => { if (m.name) connectedPlayers.add(m.name.toLowerCase().trim()); });
+    });
+  }
+
+
+
   return (
     <div className="page-container" style={{ minHeight: '100dvh', background: 'var(--pitch-black)', fontFamily: 'var(--font-secondary)' }}>
       <div style={{ display: 'none' }} />
@@ -1560,6 +1578,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                   
                   if (p.condition?.isResting) return false;
                   if ((p.history?.pj || 0) === 0) return false;
+                    if (regName && !connectedPlayers.has(p.name.toLowerCase().trim())) return false;
+                    if (regName && !connectedPlayers.has(p.name.toLowerCase().trim())) return false;
 
                   const lastTime = p.lastMatchDate ? new Date(p.lastMatchDate).getTime() : Date.now();
                   const isActive = (Date.now() - lastTime) < 30 * 24 * 60 * 60 * 1000;
@@ -1809,18 +1829,18 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
 
       {activeTab === 'history' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '600px', margin: '0 auto', boxSizing: 'border-box' }}>
-          {matchHistory.length === 0 ? (
+          {myMatches.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--off-white)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📚</div>
               <p style={{ margin: 0, fontSize: '0.9rem' }}>No hay partidos disputados registrados aún.</p>
             </div>
           ) : (
-            matchHistory.map((match, idx) => {
+            myMatches.map((match, idx) => {
               const dateStr = new Date(match.date).toLocaleDateString() + ' ' + new Date(match.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
               return (
                 <div key={match.id} className="glass-panel" style={{ padding: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', borderLeft: match.winner === 'A' ? '4px solid var(--volt-lime)' : (match.winner === 'B' ? '4px solid var(--electric-cyan)' : '4px solid gray') }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--off-white)', fontSize: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.4rem' }}>
-                    <span>Partido #{matchHistory.length - idx}</span>
+                    <span>Partido #{myMatches.length - idx}</span>
                     <span>{dateStr}</span>
                   </div>
                   
