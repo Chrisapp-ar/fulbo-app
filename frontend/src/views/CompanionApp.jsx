@@ -488,12 +488,12 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   };
 
   if (loading) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--volt-lime)', fontSize: '1.5rem', background: 'var(--pitch-black)' }}>Cargando Liga...</div>;
+    return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--volt-lime)', fontSize: '1.5rem', background: 'var(--pitch-black)' }}>Cargando Liga...</div>;
   }
 
   if (!subscriptionChecking && isSubscriptionExpired()) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>
         <div className="glass-panel" style={{ maxWidth: '500px', width: '100%', padding: '3rem 2rem', borderTop: '2px solid var(--crimson-red)', boxShadow: '0 0 20px rgba(255,0,85,0.1)' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
           <h2 style={{ color: 'var(--crimson-red)', marginBottom: '1rem' }}>LIGA TEMPORALMENTE INACTIVA</h2>
@@ -620,7 +620,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
 
 
   if (leagueId && !leagueExists) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>No se pudo encontrar la liga. Verifica que el enlace sea correcto.</div>;
+    return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'var(--pitch-black)', padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-secondary)' }}>No se pudo encontrar la liga. Verifica que el enlace sea correcto.</div>;
   }
 
     const isEventExpired = (event) => {
@@ -631,11 +631,11 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   };
 
   return (
-    <div className="page-container" style={{ minHeight: '100vh', background: 'var(--pitch-black)', fontFamily: 'var(--font-secondary)' }}>
+    <div className="page-container" style={{ minHeight: '100dvh', background: 'var(--pitch-black)', fontFamily: 'var(--font-secondary)' }}>
       <div style={{ display: 'none' }} />
 
       {selectedPlayer ? (<div style={{ 
-        minHeight: '100vh', 
+        minHeight: '100dvh', 
         background: 'var(--pitch-black)', 
         display: 'flex', 
         flexDirection: 'column', 
@@ -930,8 +930,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           position: 'fixed',
           top: 0,
           left: 0,
-          width: '100vw',
-          height: '100vh',
+          width: '100%',
+          height: '100dvh',
           background: 'radial-gradient(circle at center, #0F0F16 0%, #050507 100%)',
           zIndex: 10000,
           display: 'flex',
@@ -997,7 +997,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
           )}
 
           {walkoutRevealStage === 2 && walkoutPlayers && walkoutPlayers.length > 0 && (
-            <div style={{ zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '100vw', textAlign: 'center' }}>
+            <div style={{ zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '100%', textAlign: 'center' }}>
               <h2 className="glow-text-volt" style={{ fontSize: '1.8rem', fontWeight: '900', fontStyle: 'italic', margin: 0, letterSpacing: '2px' }}>
                 ⭐ TOP JUGADORES IA ⭐
               </h2>

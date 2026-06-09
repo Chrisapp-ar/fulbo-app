@@ -57,7 +57,7 @@ const App = () => {
   };
 
   if (loading) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--volt-lime)', fontSize: '1.5rem', background: 'var(--pitch-black)' }}>Cargando FULBO...</div>;
+    return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--volt-lime)', fontSize: '1.5rem', background: 'var(--pitch-black)' }}>Cargando FULBO...</div>;
   }
 
   // Si hay un enlace de invitación
