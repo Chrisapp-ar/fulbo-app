@@ -39,14 +39,50 @@ const App = () => {
     }
   }, []);
   
-  const urlParams = new URLSearchParams(window.location.search);
-  let leagueId = urlParams.get('league');
-  
-  if (leagueId && leagueId !== 'null' && leagueId !== 'undefined') {
-    localStorage.setItem('fulbo_last_league', leagueId);
-  } else {
-    leagueId = localStorage.getItem('fulbo_last_league');
-  }
+
+  const [resolvedLeagueId, setResolvedLeagueId] = useState(null);
+  const [isResolvingLeague, setIsResolvingLeague] = useState(true);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    let lId = urlParams.get('league');
+    
+    if (lId && lId !== 'null' && lId !== 'undefined') {
+      localStorage.setItem('fulbo_last_league', lId);
+      setResolvedLeagueId(lId);
+      setIsResolvingLeague(false);
+    } else {
+      lId = localStorage.getItem('fulbo_last_league');
+      if (lId && lId !== 'null' && lId !== 'undefined') {
+        setResolvedLeagueId(lId);
+        setIsResolvingLeague(false);
+      } else if (session?.user && isSupabaseConfigured && supabase) {
+        // Try to recover leagueId from DB
+        supabase
+          .from('event_registrations')
+          .select('host_id')
+          .eq('player_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .then(({ data }) => {
+            if (data && data.length > 0) {
+              const recoveredLeague = data[0].host_id;
+              localStorage.setItem('fulbo_last_league', recoveredLeague);
+              setResolvedLeagueId(recoveredLeague);
+            }
+            setIsResolvingLeague(false);
+          })
+          .catch(() => {
+             setIsResolvingLeague(false);
+          });
+      } else {
+        setIsResolvingLeague(false);
+      }
+    }
+  }, [session]);
+
+  const leagueId = resolvedLeagueId;
+
 
   const handleLogout = () => {
     if (isSupabaseConfigured && supabase) supabase.auth.signOut();
@@ -56,7 +92,7 @@ const App = () => {
     }
   };
 
-  if (loading) {
+  if (loading || isResolvingLeague) {
     return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--volt-lime)', fontSize: '1.5rem', background: 'var(--pitch-black)' }}>Cargando FULBO...</div>;
   }
 
