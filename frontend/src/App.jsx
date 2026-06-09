@@ -40,48 +40,60 @@ const App = () => {
   }, []);
   
 
+
   const [resolvedLeagueId, setResolvedLeagueId] = useState(null);
   const [isResolvingLeague, setIsResolvingLeague] = useState(true);
 
   useEffect(() => {
+    const fetchProfile = async (lIdToSet) => {
+      if (session?.user && isSupabaseConfigured && supabase) {
+        try {
+          const { data } = await supabase
+            .from('event_registrations')
+            .select('*')
+            .eq('player_id', session.user.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+            
+          if (data && data.length > 0) {
+            const lastReg = data[0];
+            if (!lIdToSet) {
+              lIdToSet = lastReg.host_id;
+              localStorage.setItem('fulbo_last_league', lIdToSet);
+            }
+            if (!localStorage.getItem('guestName') && lastReg.name) {
+              localStorage.setItem('guestName', lastReg.name);
+              if (lastReg.role) localStorage.setItem('guestRole', lastReg.role);
+              if (lastReg.stats) localStorage.setItem('guestStats', JSON.stringify(lastReg.stats));
+              if (lastReg.avatar) localStorage.setItem('guestAvatar', lastReg.avatar);
+            }
+          }
+        } catch (e) {
+          console.error("Error recovering profile", e);
+        }
+      }
+      setResolvedLeagueId(lIdToSet);
+      setIsResolvingLeague(false);
+    };
+
     const urlParams = new URLSearchParams(window.location.search);
     let lId = urlParams.get('league');
     
     if (lId && lId !== 'null' && lId !== 'undefined') {
       localStorage.setItem('fulbo_last_league', lId);
-      setResolvedLeagueId(lId);
-      setIsResolvingLeague(false);
+      fetchProfile(lId);
     } else {
       lId = localStorage.getItem('fulbo_last_league');
       if (lId && lId !== 'null' && lId !== 'undefined') {
-        setResolvedLeagueId(lId);
-        setIsResolvingLeague(false);
-      } else if (session?.user && isSupabaseConfigured && supabase) {
-        // Try to recover leagueId from DB
-        supabase
-          .from('event_registrations')
-          .select('host_id')
-          .eq('player_id', session.user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .then(({ data }) => {
-            if (data && data.length > 0) {
-              const recoveredLeague = data[0].host_id;
-              localStorage.setItem('fulbo_last_league', recoveredLeague);
-              setResolvedLeagueId(recoveredLeague);
-            }
-            setIsResolvingLeague(false);
-          })
-          .catch(() => {
-             setIsResolvingLeague(false);
-          });
+        fetchProfile(lId);
       } else {
-        setIsResolvingLeague(false);
+        fetchProfile(null);
       }
     }
   }, [session]);
 
   const leagueId = resolvedLeagueId;
+
 
 
   const handleLogout = () => {

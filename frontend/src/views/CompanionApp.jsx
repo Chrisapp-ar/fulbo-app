@@ -1441,9 +1441,11 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                           {activeEvent.teamA.map(p => (
                             <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
-                              <span>{p.avatar || '👤'}</span>
-                              <span style={{ fontWeight: 'bold' }}>{p.name}</span>
-                              <span style={{ color: 'var(--volt-lime)', fontSize: '0.7rem' }}>({p.role.substring(0,3).toUpperCase()})</span>
+                              <div style={{ width: '20px', height: '20px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  {p.avatar && p.avatar.startsWith('data:image') ? <img src={p.avatar} style={{ width:'100%', height:'100%', objectFit:'cover' }} alt=""/> : <span>{p.avatar || '👤'}</span>}
+                                </div>
+                                <span style={{ fontWeight: 'bold' }}>{p.name}</span>
+                                <span style={{ color: 'var(--volt-lime)', fontSize: '0.7rem' }}>({p.role.substring(0,3).toUpperCase()})</span>
                             </div>
                           ))}
                         </div>
@@ -1457,9 +1459,11 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                           {activeEvent.teamB.map(p => (
                             <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: 'white' }}>
-                              <span>{p.avatar || '👤'}</span>
-                              <span style={{ fontWeight: 'bold' }}>{p.name}</span>
-                              <span style={{ color: 'var(--electric-cyan)', fontSize: '0.7rem' }}>({p.role.substring(0,3).toUpperCase()})</span>
+                              <div style={{ width: '20px', height: '20px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  {p.avatar && p.avatar.startsWith('data:image') ? <img src={p.avatar} style={{ width:'100%', height:'100%', objectFit:'cover' }} alt=""/> : <span>{p.avatar || '👤'}</span>}
+                                </div>
+                                <span style={{ fontWeight: 'bold' }}>{p.name}</span>
+                                <span style={{ color: 'var(--electric-cyan)', fontSize: '0.7rem' }}>({p.role.substring(0,3).toUpperCase()})</span>
                             </div>
                           ))}
                         </div>
