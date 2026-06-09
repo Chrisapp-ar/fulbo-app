@@ -1133,7 +1133,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
       if (useLobby) {
         // Limpiar duplicados
         const uniqueMap = {};
-        eventRegistrations.forEach(r => { if (r && r.name) { const key = r.id || r.name.toLowerCase().trim(); uniqueMap[key] = r; } });
+        eventRegistrations.forEach(r => { if (r && r.name) { const key = r.name.toLowerCase().trim(); uniqueMap[key] = r; } });
         const finalRegs = Object.values(uniqueMap).slice(0, activeEvent?.format || 100);
 
         if (finalRegs.length < 8) {
@@ -1255,7 +1255,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
       if (useLobby) {
         // Limpiar duplicados por nombre
         const uniqueMap = {};
-        eventRegistrations.forEach(r => { if (r && r.name) { const key = r.id || r.name.toLowerCase().trim(); uniqueMap[key] = r; } });
+        eventRegistrations.forEach(r => { if (r && r.name) { const key = r.name.toLowerCase().trim(); uniqueMap[key] = r; } });
         const finalRegs = Object.values(uniqueMap).slice(0, activeEvent?.format || 100);
 
         if (finalRegs.length < 8) {
@@ -1833,7 +1833,7 @@ const Dashboard = ({ userId, userEmail, onLogout }) => {
     const uniqueRegistrationsMap = {};
     eventRegistrations.forEach(r => {
       if (r && r.name) {
-        const key = r.id || r.name.toLowerCase().trim();
+        const key = r.name.toLowerCase().trim();
         uniqueRegistrationsMap[key] = r;
       }
     });
