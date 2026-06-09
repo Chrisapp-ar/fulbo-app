@@ -97,11 +97,17 @@ const App = () => {
 
 
   const handleLogout = () => {
-    if (isSupabaseConfigured && supabase) supabase.auth.signOut();
-    else {
-      setIsAuthenticated(false);
-      setSession(null);
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('guestName');
+    localStorage.removeItem('guestRole');
+    localStorage.removeItem('guestStats');
+    localStorage.removeItem('guestAvatar');
+    setIsAuthenticated(false);
+    setSession(null);
+    if (isSupabaseConfigured && supabase) {
+      supabase.auth.signOut();
     }
+    window.location.href = '/';
   };
 
   if (loading || isResolvingLeague) {
