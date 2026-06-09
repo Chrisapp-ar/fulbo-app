@@ -53,6 +53,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
     catch(e) { return { pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 }; }
   });
   const [regSuccess, setRegSuccess] = useState(false);
+  const [isSubmittingReg, setIsSubmittingReg] = useState(false);
   const [leagueExists, setLeagueExists] = useState(false);
   const [regAvatar, setRegAvatar] = useState(localStorage.getItem('guestAvatar') || '⚽');
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState(false);
@@ -107,7 +108,10 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const maxPlayers = activeEvent?.format ? activeEvent.format * 2 : 100;
   const uniqueRegistrations = Object.values(uniqueRegistrationsMap).slice(0, maxPlayers);
 
-  const isUserRegistered = uniqueRegistrations.some(r => r.player_id === currentUser?.id || (r.name && currentUser?.user_metadata?.full_name && r.name.toLowerCase().trim() === currentUser.user_metadata.full_name.toLowerCase().trim()));
+  const isUserRegistered = uniqueRegistrations.some(r => 
+    (currentUser && r.player_id === currentUser.id) || 
+    (r.name && regName && r.name.toLowerCase().trim() === regName.toLowerCase().trim())
+  ) || regSuccess;
 
   useEffect(() => {
     if (currentUser?.user_metadata?.full_name && !regName) {
