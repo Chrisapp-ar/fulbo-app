@@ -96,7 +96,7 @@ const App = () => {
 
 
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem('userRole');
     localStorage.removeItem('guestName');
     localStorage.removeItem('guestRole');
@@ -105,7 +105,7 @@ const App = () => {
     setIsAuthenticated(false);
     setSession(null);
     if (isSupabaseConfigured && supabase) {
-      supabase.auth.signOut();
+      await supabase.auth.signOut();
     }
     window.location.href = '/';
   };
