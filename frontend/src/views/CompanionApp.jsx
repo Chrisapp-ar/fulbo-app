@@ -69,7 +69,7 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
   const [editStats, setEditStats] = useState({ pac: 75, sho: 75, pas: 75, dri: 75, def: 75, phy: 75 });
 
   // States for reveal animation
-  const [teamsRevealed, setTeamsRevealed] = useState(false);
+  const [teamsRevealed, setTeamsRevealed] = useState(() => localStorage.getItem('has_seen_walkout_' + leagueId) === 'true');
   const [isRevealing, setIsRevealing] = useState(false);
   const [showPackOpening, setShowPackOpening] = useState(false);
   const [walkoutRevealStage, setWalkoutRevealStage] = useState(0);
