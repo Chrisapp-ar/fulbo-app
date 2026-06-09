@@ -1247,8 +1247,8 @@ const CompanionApp = ({ leagueId, currentUser, onLogout }) => {
                         uniqueRegistrations.map((r, i) => (
                           <li key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                               <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}>
-                                 <span>{r.avatar || '👤'}</span>
+                               <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', overflow: 'hidden' }}>
+                                 {r.avatar && r.avatar.startsWith('data:image') ? <img src={r.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{r.avatar || '👤'}</span>}
                                </div>
                                <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: 'white' }}>{r.name}</span>
                             </div>
